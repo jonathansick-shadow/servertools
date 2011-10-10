@@ -2,9 +2,25 @@
 a module for manipulating manifest files without use of EUPS and a installed
 software stack.  The main functionality is provided via the Manifest class.
 """
+from __future__ import absolute_import
+from __future__ import with_statement
+
+import sys, os, re
+from subprocess import Popen, PIPE
+from copy import copy
+
+from . import version as onvers
 
 defaultColumnNames = \
 "pkg flavor version tablefile installation_directory installID".split()
+headerLineMagic = "EUPS distribution manifest"
+defaultManifestHeader = headerLineMagic + \
+""" for %s (%s). Version 1.0
+#
+"""
+headerLineRe = re.compile(headerLineMagic + r" for (\S+) \((\S+)\)")
+
+extension = ".manifest"
 
 class Manifest(object):
     """
@@ -12,11 +28,14 @@ class Manifest(object):
     notions of LSST conventions.
     """
 
-    def __init__(self, name, version, flavor="generic"):
+    def __init__(self, name, version, pkgpath=None, flavor="generic"):
         """create a manifest for a given package
 
-        @param name     the name of the package this manifest is for
+        @param name     the name of the product this manifest is for
         @param version  the version of the package
+        @param pkgpath  the extra path to the product directory.  For
+                          external products, this value is set to 
+                          "external"
         @param flavor   the name of the platform type supported by this
                           installation of the package
         """
@@ -25,6 +44,7 @@ class Manifest(object):
         self.name = name
         self.vers = version
         self.flav = flavor
+        self.pkgpath = pkgpath
         self.hdr = defaultManifestHeader
         self.colnames = copy(defaultColumnNames)
         self.colnames[0] = "# " + self.colnames[0]
@@ -39,7 +59,7 @@ class Manifest(object):
         self.commcount += 1
         key = '#'+str(self.commcount)
         self.keys.append(key)
-        self.recs[key] = [ '' ] * len(self.colnames)
+        self.recs[key] = ['#'] + [ '' ] * len(self.colnames)
         self.recs[key][-1] = comment
 
     def addRecord(self, pkgname, flavor, version,
@@ -56,37 +76,40 @@ class Manifest(object):
                              this package should be installed by default.
         @param installid  a complete handle for the deployment bundle.
         """
-        key = ":".join([pkgname, flavor, version])
+        key = self._reckey(pkgname, flavor, version)
         if not self.recs.has_key(key):
             self.keys.append(key)
             self.recs[key] = [pkgname, flavor, version,
                               tablefile, installdir, installid]
 
-    def addLSSTRecord(self, pkgname, version, pkgpath=None, build="1", 
-                      flavor="generic", id="lsstbuild"):
+    def addLSSTRecord(self, prodname, version, pkgpath=None, build=None, 
+                      flavor="generic", id="lsstbuild", buildqual="+"):
         """append a standard build record for an LSST package.
 
-        @param pkgname    the name of the package
-        @param version    the version of the package
+        @param prodname   the name of the product
+        @param version    the version of the product
         @param pkgpath    if non-None, a path to be prepended to the standard
-                             pkgname/version install directory (default:
+                             package/version install directory (default:
                              None)
         @param flavor     the name of the platform type supported by this
                             installation of the package (default: "generic")
         @param id         the installid or abbreviation (default: "lsstbuild")
         """
-        fpkgpath = "%s/%s" % (pkgname, version)
-        if (pkgpath is not None and len(pkgpath) > 0):
-            fpkgpath = "%s/%s" % (pkgpath, fpkgpath)
-        ipkgpath = "%s+%s" % (fpkgpath, build)
-        tablepath = os.path.join(fpkgpath, "%s.table" % pkgname)
-        bversion = "%s+%s" % (version, build)
+        buildsuffix = ''
+        if build:
+            version = onvers.baseVersion(version)
+            buildsuffix = buildqual + str(build)
 
-        self.addRecord(pkgname, flavor, bversion, tablepath, ipkgpath,
-                       self.defaultID(id, pkgname, flavor, version, fpkgpath))
+        srvpath = self.defaultProductPath(prodname, version, pkgpath)
+        ipkgpath = srvpath + buildsuffix
+        tablepath = os.path.join(srvpath, "%s.table" % prodname)
+
+        self.addRecord(prodname, flavor, version+buildsuffix, tablepath, ipkgpath,
+                       self.defaultID(id, prodname, version, path=srvpath))
+                                      
                        
     def addExtRecord(self, pkgname, version, pkgpath="external", 
-                     build="1", flavor="generic", id="lsstbuild"):
+                     build="1", flavor="generic", id="lsstbuild", buildqual="+"):
         """append a standard build record for an LSST package
 
         @param pkgname    the name of the package
@@ -98,40 +121,55 @@ class Manifest(object):
                             installation of the package (default: "generic")
         @param id         the installid or abbreviateion (default: "pacman")
         """
-        self.addLSSTRecord(pkgname, version, pkgpath, build, flavor, id)
+        self.addLSSTRecord(pkgname, version, pkgpath, build, flavor, id, buildqual)
 
-    def addSelfRecord(self, pkgpath=None, build="1",
-                      flavor="generic", id="lsstbuild"):
+    def addSelfRecord(self, flavor="generic", id="lsstbuild"):
         """append a standard build record for the package that this
         manifest is for
 
-        @param pkgpath    if non-None, a path to be prepended to the standard
-                             pkgname/version install directory (default:
-                             None)
         @param flavor     the name of the platform type supported by this
                             installation of the package (default: "generic")
         @param id         the installid or abbreviateion (default: "pacman")
         """
-        self.addLSSTRecord(self.name, self.vers, pkgpath, build, flavor, id)
+        vbits = onvers.splitToReleaseBuild(self.vers)
+        self.addLSSTRecord(self.name, vbits[0], self.pkgpath, vbits[2], flavor, 
+                           id, vbits[1])
 
-    def defaultID(self, id, pkgname, flavor, version, path):
-        """create an installid from an abbreviation that is consistent
+    def defaultProductPath(self, prodname, version, pkgpath=None):
+        """
+        create a path for the product directory on the server.  
+        """
+        ver = onvers.baseVersion(version)
+        path = "%s/%s" % (prodname, ver)
+        if pkgpath:
+            path = "%s/%s" % (pkgpath, path)
+            
+        return path
+
+    def defaultID(self, id, prodname, version, pkgpath=None, flavor=None, path=None):
+        """
+        create an installid from an abbreviation that is consistent
         with the package name and version.  If the input id is not
         recognized as an abbreviation, it is returned untransformed.
 
         Recognized ids include "lsstbuild", representing a standard LSST
         build script having the name of the form, "package.bld".  
 
-        @param pkgname    the name of the package
+        @param id    either an id abbreviation or a full installid
+        @param prodname   the name of the product
         @param flavor     the name of the platform type supported by this
                             installation of the package
         @param version    the version of the package
-        @param id    either an id abbreviation or a full installid
         """
+        if not path:
+            path = self.defaultProductPath(prodname, version, pkgpath)
+            if flavor and flavor != "generic":
+                path += "/%s" % flavor
+
         if (id == 'lsstbuild' or id == 'tarball'):
-            id = "lsstbuild:%s/%s-%s.tar.gz" % (path, pkgname, version)
+            id = "lsstbuild:%s/%s-%s.tar.gz" % (path, prodname, version)
         elif (id == 'bld'):
-            id = "lsstbuild:%s/%s.bld" % (path, pkgname)
+            id = "lsstbuild:%s/%s.bld" % (path, prodname)
         return id
 
     def hasRecord(self, pkgname, flavor, version):
@@ -143,7 +181,7 @@ class Manifest(object):
                             installation of the package
         @param version    the version of the package
         """
-        return self.recs.has_key(":".join([pkgname, flavor, version]))
+        return self.recs.has_key(self._reckey(pkgname, flavor, version))
 
     def hasProduct(self, pkgname):
         """return true if this manifest has a record matching the
@@ -152,6 +190,18 @@ class Manifest(object):
         @param pkgname    the name of the package
         """
         return bool(filter(lambda k: k.startswith(pkgname+':'), self.keys))
+
+    def getSelf(self):
+        """
+        return the record data that applies to the owning product itself.
+        """
+        return self.recs.get(self._reckey(self.name, self.flav, self.vers))
+
+    def getRecord(self, prodname, version, flavor="generic"):
+        """
+        return the record data that applies to the owning product itself.
+        """
+        return self.recs.get(self._reckey(prodname, flavor, version))
 
     def recordToString(self, pkgname, flavor, version):
         """return the requested record in manifest format.
@@ -162,7 +212,10 @@ class Manifest(object):
         """
         if (not self.hasRecord(pkgname, flavor, version)):
             raise RuntimeError("record not found in manifest")
-        return " ".join(self.recs(":".join([pkgname, flavor, version])))
+        return " ".join(self.recs(self._reckey(pkgname, flavor, ver)))
+
+    def _reckey(self, pkgname, flavor, version):
+        return ":".join([pkgname, flavor, version])
 
     def __repr__(self):
         """return all lines of the manifest in proper manifest format"""
@@ -174,7 +227,7 @@ class Manifest(object):
         """return all lines of the manifest in proper manifest format"""
         return str(self)
 
-    def printRecord(self, strm):
+    def write(self, strm):
         """print the lines of the manifest to a give output stream.
 
         @param strm  the output stream to write the records to
@@ -184,7 +237,7 @@ class Manifest(object):
         
         strm.write(self.hdr % (self.name, self.vers))
         strm.write((fmt % tuple(self.colnames)))
-        strm.write("#" + " ".join(map(lambda x: '-' * x, collen))[1:79])
+        strm.write("#" + " ".join(map(lambda x: '-' * x, collen))[1:109])
         strm.write("\n")
 
         for key in self.keys:
@@ -192,6 +245,24 @@ class Manifest(object):
                 strm.write("# %s\n" % self.recs[key][-1])
             else:
                 strm.write(fmt % tuple(self.recs[key]))
+
+    class _iterator(object):
+        def __init__(self, manifest):
+            self._keys = manifest.keys[:]
+            self._recs = manifest.recs.copy()
+            self._nxtIdx = (len(self._keys) and 0) or 1
+        def __iter__(self):
+            return self
+        def next(self):
+            if self._nxtIdx > len(self._keys):
+                raise StopIteration()
+            try:
+                return self._recs[self._keys[self._nxtIdx]]
+            finally:
+                self._nxtIdx += 1
+
+    def __iter__(self):
+        return self._iterator(self)
             
     def _collen(self):
         x = self.recs.values()
@@ -222,7 +293,7 @@ class Manifest(object):
                 if line.startswith('#'):
                     continue
 
-                parts = spaceRe.split(line, len(defaultColumnNames))
+                parts = re.split(r'\s+', line, len(defaultColumnNames))
                 if len(parts) < 4:
                     continue
                 if len(parts) < len(defaultColumnNames):
@@ -241,3 +312,235 @@ class Manifest(object):
             if not self.hasProduct(other.recs[key][0]):
                 self.addRecord(*other.recs[key])
 
+class Dependency(object):
+    """
+    a light weight container of the data from one record in a manifest
+    """
+    NAME       = 0
+    FLAVOR     = 1
+    VERSION    = 2
+    TABLEFILE  = 3
+    INSTALLDIR = 4
+    INSTALLID  = 5
+
+    def __init__(self, data):
+        """
+        initialize the Dependency
+        @param data    the list containing the manifest record data, in the 
+                         that they appear in the file.  For efficiency, the 
+                         list is not copied but rather stored by reference.
+        """
+        self.data = data
+
+    def matches(self, prodname, version=None, flavor=None):
+        if prodname != self.data[self.NAME]:
+            return False
+        if version is not None and version != self.data[self.VERSION]:
+            return False
+        if flavor is not None and flavor != self.data[self.FLAVOR]:
+            return False
+        return True
+
+class DeployedManifests(object):
+    """
+    the set of deployed manifests represented by the manifests directory
+    and the manifest files it contains.  
+    """
+
+    def __init__(self, mandir, versionCompare=None):
+        """
+        initialize to a given manifests directory
+        @param mandir          the directory containing the manifests
+        @param versionCompare  the comparator functor that can be used 
+                                  for sorting versions.  If not provided,
+                                  a default will be used.
+        """
+        self.dir = mandir
+        if versionCompare is None:
+            versionCompare = onvers.VersionCompare()
+        self.vcmp = versionCompare
+        self.extension = extension
+
+    def dependsOn(self, prodname, version=None, flavor=None):
+        """
+        return a list of product-version pairs of products that depends
+        the given product.
+        """
+        # this implementation uses grep for maximum performance search 
+        # through many files.  
+        mprod = "^\s*%s\s"
+        mflav = "\s*%s\s"
+        mvers = "\s*%s\s"
+
+        pattern = mprod % prodname
+        if flavor or version:
+            pattern += mflav % (flavor or "\S+")
+            if version:
+                pattern += mvers % version
+
+        cmd = "grep -lP".split()
+        cmd += self.latestManifests()
+
+        srch = Popen(cmd, executable="/bin/grep", stdout=PIPE, stderr=PIPE, 
+                     cwd=self.dir)
+        (cmdout, cmderr) = srch.communicate()
+        matchedFiles = cmdout.readlines()
+        if srch.wait():
+            msg = "Problem scanning manifest files:\n" + \
+                "".join(cmderr.readlines())
+            raise RuntimeError(msg)
+
+        return matchedFiles
+        
+        
+    def _paircmp(self, pair1, pair2):
+        cmpson = cmp(pair1[0], pair2[0])
+        if cmpson != 0:
+            return cmpson
+        if pair1[1] == pair2[1]:
+            return 0
+        if pair1[1] is None:
+            return -1
+        if pair2[1] is None:
+            return  1
+        return self.vcmp(pair1[1], pair2[1])
+
+    def listAll(self):
+        """
+        return a list of all products (as product-version tuple-pairs)
+        deployed as determined by manifests files in the manifests 
+        directory
+        """
+        return map(lambda m: self.productFromFilename(m),
+                  filter(lambda f: f.endswith(self.extension), 
+                         os.listdir(self.dir)))
+
+    def getVersions(self, prodname):
+        """
+        return an ordered list of versions that have been deployed for a 
+        given product.
+        """
+        out = map(lambda p: p[1], 
+                  filter(lambda m: m[0] == prodname, self.listAll()))
+        out.sort(self.vcmp)
+        return out
+
+    def getLatestVersion(self, prodname):
+        """
+        return the latest deployed version of a product
+        """
+        vers = self.getVersions(prodname)
+        if not vers:
+            raise DeployedProductNotFound(prodname)
+        return vers[-1]
+
+    def latestProducts(self, mandir=None):
+        """
+        return a list of products representing the latest versions of 
+        those products that have been released (i.e. have an entry in the 
+        manifests directory).
+        @param mandir   the manifests directory to search.  If None, the 
+                            directory that this class was instantiated against
+                            will be searched.
+        """
+        # list the manifest files and parse each into a product and version
+        mfs =self.listAll()
+        if len(mfs) == 0:
+            return []
+
+        # collect products together and sort by version order
+        mfs.sort(self._paircmp)  
+
+        out = []
+        while len(mfs) > 0:
+            # the last of a product with a given name is the latest
+            if len(mfs) == 1 or mfs[0][0] != mfs[1][0]:
+                out.append(mfs[0])
+            mfs.pop(0)
+
+        return out
+
+    def getLatestBuildNumber(self, prodname, version):
+        """
+        return the largest build number that has been deployed for the given 
+        version of a product.  
+        @param prodname    the name of the product
+        @param version     the version of the product.  If the value includes 
+                             a build number, it will be ignored.  
+        """
+        version = onvers.baseVersion(version)
+        buildRe = re.compile("\+(\d+)$")
+        versions = self.getVersions(prodname)
+        if not versions:
+            raise DeployedProductNotFound(prodname, version)
+        versions = filter(lambda b: buildRe.search(b), 
+                          filter(lambda v: v.startswith(version+"+"), 
+                                 versions))
+        versions.sort(self.vcmp)
+        return int(buildRe.search(versions[-1]).group(1))
+
+    def manifestFilename(self, prodname, version, flavor=None):
+        """
+        return the name of the manifest file for the given product within
+        manifests directory.
+        @param prodname    the name of the product
+        @param version     the version of the product (including any 
+                             build number qualifier)
+        @param flavor      the name of the flavor for the flavor-specific 
+                             version of the product.  If None, defaults 
+                             to "generic".
+        """
+        out = "%s-%s%s" % (prodname, version, self.extension)
+        if flavor:
+            out = os.path.join(flavor, out)
+        return out
+
+    def productFromFilename(self, fname):
+        """
+        return a tuple-pair contianing the product name and version that 
+        the file with the given manifest filename describes.  It assumes
+        the filename is of the form, "product-version.manifest".  The 
+        trailing ".manifest" extension is optional.  The version (the second 
+        element) will be None if the name does not encode a version (i.e. does 
+        not have a "-").  
+        @param fname    the filename
+        @return tuple   the product-version pair.  
+        """
+        if fname.endswith(self.extension):
+            fname = fname[:-1*len(self.extension)]
+
+        out = fname.split('-', 1)
+        if len(out) < 2:
+            out.append(None)
+        return (out[0], out[1])
+
+    def getManifest(self, prodname, version, flavor=None):
+        """
+        open the manifest file for a given product and return its contents
+        as a Manifest instance
+        """
+        filename = os.path.join(self.dir, 
+                                self.manifestFilename(prodname, version, flavor))
+        if not os.path.exists(filename):
+            raise DeployedProductNotFound(prodname, version, flavor)
+        return Manifest.fromFile(filename)
+
+
+class DeployedProductNotFound(Exception):
+    """
+    an exception indicating that a manifest file for a product could not 
+    be found in the manifests directory
+    """
+
+    def __init__(self, prodname, version=None, flavor=None, msg=None):
+        if not flavor:
+            flavor = "generic"
+        ver = version or ""
+        if not msg:
+            msg = "Product not deployed: %s %s (%s)" % (prodname, ver, flavor)
+                
+        Exception.__init__(self, msg)
+
+        self.name = prodname
+        self.verison = version
+        self.flavor = flavor
