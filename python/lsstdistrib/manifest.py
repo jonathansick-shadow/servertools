@@ -472,14 +472,15 @@ class DeployedManifests(object):
 
         return out
 
-    def latestManifestFiles(self):
+    def latestManifestFiles(self, fullpath=False):
         """
         return the paths to the manifest files for the products returned 
         by latestProducts()
         """
-        return map(lambda f: os.path.join(self.dir, f), 
-                   map(lambda p: self.manifestFilename(*p), 
-                       self.latestProducts()))
+        out = map(lambda p: self.manifestFilename(*p), self.latestProducts())
+        if fullpath:
+            out = map(lambda f: os.path.join(self.dir, f), out)
+        return out
 
     def getLatestBuildNumber(self, prodname, version):
         """
