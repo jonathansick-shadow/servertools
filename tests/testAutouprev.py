@@ -33,6 +33,24 @@ class AutouprevTestCase(unittest.TestCase):
         self.assertEquals(2, len(updatedFiles))
         self.assert_("external/pyfits/2.4.0/b2.manifest" in updatedFiles)
         self.assert_("external/matplotlib/1.0.1/b2.manifest" in updatedFiles)
+        self.assert_(os.path.exists(os.path.join(self.serverroot,
+                     "external/pyfits/2.4.0/b2.manifest")))
+        self.assert_(os.path.exists(os.path.join(self.serverroot,
+                     "external/matplotlib/1.0.1/b2.manifest")))
+
+    def testNoaction(self):
+        exe = "bin/autouprev.py"
+        cmd = [exe, "-d", self.serverroot, "--noaction"]
+        cmd.append("external/numpy/1.6.1+1")
+
+        do = Popen(cmd, executable=exe, stdout=PIPE, stderr=PIPE)
+        (cmdout, cmderr) = do.communicate()
+        self.assert_(not do.returncode)
+
+        updatedFiles = cmdout.strip().split("\n")
+        self.assertEquals(2, len(updatedFiles))
+        self.assert_("external/pyfits/2.4.0/b2.manifest" in updatedFiles)
+        self.assert_("external/matplotlib/1.0.1/b2.manifest" in updatedFiles)
 
 
 
