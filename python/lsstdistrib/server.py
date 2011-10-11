@@ -13,12 +13,16 @@ class Repository(object):
     a class that represents the model for how the product artifacts are 
     organized on the server disk.  
     """
+    pseudoDirName = "pseudo"
     manifestDirName = "manifests"
     externalDirName = "external"
     undeployedManifestFileRe = re.compile(r'^b(\d+)' + manifest.extension)
 
     def __init__(self, rootdir):
         self.root = rootdir
+
+    def getPseudoProductRoot(self):
+        return os.path.join(self.root, self.pseudoDirName)        
 
     def getManifestDir(self):
         return os.path.join(self.root, self.manifestDirName)
@@ -33,27 +37,36 @@ class Repository(object):
     def getTagListFile(self, tagname):
         return os.path.join(self.root, "%s.list" % tagname)
 
-    def getProductDir(self, prodname, version=None, flavor=None, asExt=None):
+    def getProductDir(self, prodname, version=None, flavor=None, category=None):
         """
         return the directory that contains the product artifacts
-        @param asExt    if None, expect the directory to exist and find it.
-                          If True, treat product explicitly as an external
-                          product; False, as an LSST product.
+        @param prodname   the name of the product of interest
+        @param version    the version of the product.  If not provided, the parent
+                             directory containing all versions is returned
+        @param category   the category of the product.  Recognized categories are 
+                             currently "external" and "pseudo".  If set explicitly 
+                             to a empty string, the product will be interpreted 
+                             explicitly as an LSST product.  If None (default),
+                             this function will figure out the category.  
         """
-        lpdir = os.path.join(self.root, prodname)
-        epdir = os.path.join(self.getExternalProductRoot(), prodname)
-        if asExt is None:
+        if category == '':
+            pdir = os.path.join(self.root, prodname)
+        elif category:
+            pdir = os.path.join(self.root, category, prodname)
+        else:
+            lpdir = os.path.join(self.root, prodname)
+            epdir = os.path.join(self.getExternalProductRoot(), prodname)
+            ppdir = os.path.join(self.getPseudoProductRoot(), prodname)
+
             # try to figure it out
             if os.path.exists(lpdir):
                 pdir = lpdir
             elif os.path.exists(epdir):
                 pdir = epdir
+            elif os.path.exists(ppdir):
+                pdir = ppdir
             else:
                 raise manifest.DeployedProductNotFound(prodname)
-        elif asExt:
-            pdir = epdir
-        else:
-            pdir = lpdir
 
         if not version: 
             return pdir
@@ -62,7 +75,7 @@ class Repository(object):
 
         if not flavor:
             return pdir
-        return os.path.join(pdir/flavor)
+        return os.path.join(pdir, flavor)
 
     def _getUndeployedManifestsFor(self, prodname, version, flavor=None):
         pdir = self.getProductDir(prodname, version, flavor)

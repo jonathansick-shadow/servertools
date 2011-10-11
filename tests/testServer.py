@@ -35,10 +35,13 @@ class RepositoryTestCase(unittest.TestCase):
     def testGetProductDir(self):
         self.assertEquals(os.path.join(self.serverroot, "lsst/4.4.0.1"), 
                           self.repos.getProductDir("lsst", "4.4.0.1+1", 
-                                                   asExt=False))
+                                                   category=''))
         self.assertEquals(os.path.join(self.serverroot, "external/lsst/4.4.0.1"), 
                           self.repos.getProductDir("lsst", "4.4.0.1+1", 
-                                                   asExt=True))
+                                                   category="external"))
+        self.assertEquals(os.path.join(self.serverroot, "pseudo/lsst/4.4.0.1"), 
+                          self.repos.getProductDir("lsst", "4.4.0.1+1", 
+                                                   category="pseudo"))
         self.assertEquals(os.path.join(self.serverroot, "lsst/4.4.0.1"), 
                           self.repos.getProductDir("lsst", "4.4.0.1+1"))
 

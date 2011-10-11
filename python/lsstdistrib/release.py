@@ -31,7 +31,7 @@ class UpdateDependents(object):
     It's possible to tweak the the creation of manifests by calling one 
     or more of the functions that createManifests() calls internally first.  
     These include:
-      getDependencies()             generates the list of dependencies for 
+      getDependents()               generates the list of dependencies for 
                                       the target products
       setUpgradedBuildNumbers()     generates the new build numbers for the 
                                       dependents that will be upgraded.
@@ -405,8 +405,8 @@ class Release(object):
         @param manifests   a list of manifests identified by a 3- or 4-tuple.  The 
                              first three elements are the product name, the version
                              (with a build number), and a path to the manifest file.
-                             The optional 4th element is a boolean indicating whether
-                             this is an external product.  If not provided, its status
+                             The optional 4th element is a category (either "external"
+                             or "pseudo").  If not provided, its category and location
                              will be determined by examinging the server.  
         @param rootdir     the root directory of the distribution server
         @param log         a file stream for sending messages.
@@ -427,8 +427,8 @@ class Release(object):
 
         if os.path.exists(mpath):
             out[2] = mpath
-        isext = len(fields) > 2 and fields[-3] == 'external'
-        out.append(isext)
+        if fields[-3] == 'external' or fields[-3] == 'pseudo':
+            out.append(fields[-3])
 
         return out
 
@@ -453,9 +453,10 @@ class Release(object):
             for man in self.manifests:
                 src = man[2]
                 if not os.path.exists(src):
-                    ext = (len(man) > 3 and man[3]) or None
-                    src = os.path.join(self.repos.getProductDir(man[0], man[1], asExt=ext),
-                                       os.path.basename(man[2]))
+                    cat = (len(man) > 3 and man[3]) or None
+                    src = os.path.join(
+                        self.repos.getProductDir(man[0], man[1], category=cat),
+                        os.path.basename(man[2]))
 
                 dest = self.makeDestPath(man)
                 if not overwrite and os.path.exists(dest):
