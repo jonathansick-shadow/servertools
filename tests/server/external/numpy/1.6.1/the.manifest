@@ -1,0 +1,2 @@
+>merge pkg=python
+>self installFile=numpy.bld

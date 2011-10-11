@@ -1,0 +1,2 @@
+setupRequired("numpy")
+envAppend(PYTHONPATH, ${PRODUCT_DIR}/lib/python)

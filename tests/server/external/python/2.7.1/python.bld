@@ -1,0 +1,13 @@
+[ -n "$TCLTK_DIR" ] || { echo TclTk appears not to be setup; false; }
+
+fetch external/python/$release/Python-${release}.tgz
+unpack_tar_and_enter Python-${release}.tgz
+
+fetch external/python/$release/lsstMkSetup.sh
+bash lsstMkSetup.sh
+
+doconfig --enable-shared
+make
+makeinstall
+
+

@@ -1,0 +1,5 @@
+EUPS distribution manifest for zlib (1.2.5). Version 1.0
+#
+# pkg flavor  version tablefile                      installation_directory installID
+#---- ------- ------- ------------------------------ ---------------------- ---
+zlib  generic 1.2.5+1 external/zlib/1.2.5/zlib.table external/zlib/1.2.5+1  lsstbuild:external/zlib/1.2.5/zlib-1.2.5.tar.gz

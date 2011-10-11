@@ -1,0 +1,7 @@
+# Configuration for a DC2 server
+DISTRIB_SERVER_CLASS = lssteups.DistribServer
+DISTRIB_CLASS = lssteups.BuildDistrib
+
+EXTERNAL_DIST_URL = "%(base)s/%(path)s"
+TABLE_URL = "%(base)s/%(path)s"
+EXTERNAL_TABLE_URL = "%(base)s/%(path)s"

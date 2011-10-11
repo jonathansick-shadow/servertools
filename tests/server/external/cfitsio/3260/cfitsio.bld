@@ -1,0 +1,6 @@
+# LSST build script for cfitsio
+#
+set -e
+fetch external/cfitsio/$release/cfitsio$release.tar.gz
+unpack_tar_and_enter cfitsio$release.tar.gz 
+simplemake

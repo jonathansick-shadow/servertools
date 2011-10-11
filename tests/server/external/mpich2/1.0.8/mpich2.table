@@ -1,0 +1,4 @@
+envPrepend(PATH, ${PRODUCT_DIR}/bin)
+envPrepend(MANPATH, ${PRODUCT_DIR}/man)
+envPrepend(LD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)
+envPrepend(DYLD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)

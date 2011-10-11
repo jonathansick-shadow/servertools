@@ -1,0 +1,4 @@
+setupRequired(python >= 2.7.1)
+envAppend(PYTHONPATH, ${PRODUCT_DIR}/lib/python)
+envAppend(PATH, ${PRODUCT_DIR}/bin)
+

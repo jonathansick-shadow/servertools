@@ -1,0 +1,11 @@
+# LSSTeups build script for mpich2
+#
+fetch external/mpich2/$release/mpich2-$ver.tar.gz
+unpack_tar_and_enter mpich2-$release.tar.gz
+
+export CFLAGS=-fPIC
+
+simplemake --disable-f77 --disable-f90
+
+
+

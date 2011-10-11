@@ -1,0 +1,11 @@
+# lsst build script for numpy
+# 
+fetch external/numpy/$release/numpy-${release}.tar.gz
+
+unpack_tar_and_enter numpy-${release}.tar.gz
+
+pysetup --home=$installdir
+
+# make include files more accessible
+echo cd $installdir \&\& ln -s lib/python/numpy/core/include include >> $buildlog
+cd $installdir && ln -s lib/python/numpy/core/include include 2>&1 | tee -a $buildlog
