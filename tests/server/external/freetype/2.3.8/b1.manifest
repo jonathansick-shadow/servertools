@@ -1,0 +1,5 @@
+EUPS distribution manifest for freetype (2.3.8). Version 1.0
+#
+# pkg    flavor  version tablefile                              installation_directory    installID
+#------- ------- ------- -------------------------------------- ---------------
+freetype generic 2.3.8+1 external/freetype/2.3.8/freetype.table external/freetype/2.3.8+1 lsstbuild:external/freetype/2.3.8/freetype-2.3.8.tar.gz
