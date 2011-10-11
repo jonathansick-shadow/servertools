@@ -334,6 +334,19 @@ class UpdateDependents(object):
         if upgrecs is None:
             upgrecs = {}
 
+        # first put in the target products
+        for prod in self.prods:
+            if upgrecs.has_key(prod[0]):
+                continue
+            # open up the manifest for that product:
+            man = self.deployed.getManifest(prod[0], prod[1])
+            rec = man.getSelf()
+            if not rec:
+                # this may be a pseudo product
+                continue
+            upgrecs[prod[0]] = rec
+
+        # now go through the dependents
         for prod in self.deps:
             if upgrecs.has_key(prod):
                 continue
