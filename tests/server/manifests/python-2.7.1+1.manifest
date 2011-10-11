@@ -1,0 +1,6 @@
+EUPS distribution manifest for python (2.7.1+1). Version 1.0
+#
+# pkg  flavor  version tablefile                          installation_directory  installID
+#----- ------- ------- ---------------------------------- ----------------------- -----------
+tcltk  generic 8.5.9+1 external/tcltk/8.5.9/tcltk.table   external/tcltk/8.5.9+1  lsstbuild:external/tcltk/8.5.9/tcltk.bld
+python generic 2.7.1+1 external/python/2.7.1/python.table external/python/2.7.1+1 lsstbuild:external/python/2.7.1/python.bld

@@ -1,0 +1,11 @@
+EUPS distribution manifest for lsst (4.4.0.1+1). Version 1.0
+#
+# pkg        flavor  version   tablefile                                       installation_directory        installID
+#----------- ------- -------   ----------------------------------              ---------------------------   ------------
+tcltk        generic 8.5.9+1   external/tcltk/8.5.9/tcltk.table                external/tcltk/8.5.9+1        lsstbuild:external/tcltk/8.5.9/tcltk.bld
+python       generic 2.7.2+1   external/python/2.7.2/python.table              external/python/2.7.2+1       lsstbuild:external/python/2.7.2/python.bld
+sconsDistrib generic 2.1.0+1   external/sconsDistrib/2.1.0/sconsDistrib.table  external/sconsDistrib/1.1.0+1 lsstbuild:external/sconsDistrib/2.1.0/sconsDistrib.bld
+sconsUtils   generic 3.4.5+1   sconsUtils/3.4.5/sconsUtils.table               sconsUtils/3.4.5+1            lsstbuild:sconsUtils/3.4.5/sconsUtils.bld
+scons        generic 3.4.5+1   sconsUtils/3.4.5/scons.table                    sconsUtils/3.4.5+1            lsstbuild:scons/3.4.5/scons.bld
+lssteups     generic 4.4.0.1+1 lssteups/4.4.0.1/lssteups.table                 lssteups/4.4.0.1+1            lsstbuild:lssteups/4.4.0.1/lssteups-4.4.0.1.tar.gz
+lsst         generic 4.4.0.1+1 lsst/4.4.0.1/lsst.table                         lsst/4.4.0.1+1                lsstbuild:lsst/4.4.0.1/lsst-4.4.0.1.tar.gz

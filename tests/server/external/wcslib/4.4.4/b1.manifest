@@ -1,0 +1,6 @@
+EUPS distribution manifest for wcslib (4.4.4). Version 1.0
+#
+# pkg   flavor  version tablefile                           installation_directory  installID
+#------ ------- ------- ----------------------------------- -------------------
+cfitsio generic 3260+1  external/cfitsio/3260/cfitsio.table external/cfitsio/3260+1 lsstbuild:external/cfitsio/3260/cfitsio.bld
+wcslib  generic 4.4.4+1 external/wcslib/4.4.4/wcslib.table  external/wcslib/4.4.4+1 lsstbuild:external/wcslib/4.4.4/wcslib.bld

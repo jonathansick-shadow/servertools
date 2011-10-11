@@ -1,0 +1,11 @@
+# lsst build script for matploglib
+# 
+set -e
+fetch external/matplotlib/$release/matplotlib-${release}.tar.gz
+unpack_tar_and_enter matplotlib-${release}.tar.gz
+
+echo "Getting customized setupext.py..." >> $buildlog
+fetch external/matplotlib/$release/setupext.py
+
+pysetup --home=$installdir
+

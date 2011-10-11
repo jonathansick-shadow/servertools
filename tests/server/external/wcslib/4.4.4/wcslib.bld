@@ -1,0 +1,13 @@
+#
+[ -n "$CFITSIO_DIR" ] || {
+    echo "cfitsio package is not setup"
+    false
+}
+fetch external/wcslib/$release/wcslib-$release.tar.bz2
+tar jxf wcslib-$release.tar.bz2
+cd wcslib-$release
+
+doconfig --with-cfitsioinc=$CFITSIO_DIR/include --with-cfitsiolib=$CFITSIO_DIR/lib --disable-fortran
+
+make
+make install

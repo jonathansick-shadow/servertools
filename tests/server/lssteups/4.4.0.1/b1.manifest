@@ -1,0 +1,5 @@
+EUPS distribution manifest for lssteups (4.4.0.1+1). Version 1.0
+#
+# pkg        flavor  version   tablefile                          installation_directory  installID
+#----------- ------- -------   ---------------------------------- ----------------------- ------------
+lssteups     generic 4.4.0.1+1 lssteups/4.4.0.1/lssteups.table    lssteups/4.4.0.1+1      lsstbuild:lssteups/4.4.0.1/lssteups-4.4.0.1.tar.gz

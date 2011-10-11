@@ -1,0 +1,5 @@
+EUPS distribution manifest for lssteups (1.2). Version 1.0
+#
+# pkg    flavor  version tablefile      installation_directory installID
+#------- ------- ------- -------------- ---------------------- ----------------
+lssteups generic 1.2     lssteups.table lssteups/1.2           lssteups-1.2.tar.gz

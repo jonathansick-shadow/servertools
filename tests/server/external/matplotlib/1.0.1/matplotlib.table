@@ -1,0 +1,5 @@
+setupRequired(libpng >= 1.2.35)
+setupRequired(freetype >= 2.3.8)
+setupRequired(numpy >= 1.0.1)
+
+envPrepend(PYTHONPATH, ${PRODUCT_DIR}/lib/python)

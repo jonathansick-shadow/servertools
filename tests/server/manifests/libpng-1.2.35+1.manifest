@@ -1,0 +1,5 @@
+EUPS distribution manifest for libpng (1.2.35+1). Version 1.0
+#
+# pkg  flavor  version  tablefile                           installation_directory   installID
+#----- ------- -------- ----------------------------------- -------------------
+libpng generic 1.2.35+1 external/libpng/1.2.35/libpng.table external/libpng/1.2.35+1 lsstbuild:external/libpng/1.2.35/libpng-1.2.35.tar.gz

@@ -1,0 +1,3 @@
+fetch external/sconsDistrib/$release/scons-${release}.tar.gz
+unpack_tar_and_enter scons-${release}.tar.gz
+pysetup --prefix=$installdir --standalone-lib

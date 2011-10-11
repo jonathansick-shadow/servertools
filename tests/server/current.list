@@ -1,0 +1,34 @@
+EUPS distribution current version list. Version 1.0
+#
+#
+# pkg            flavor     version        extra_dir  pkg_dir
+#--------------  ---------  -------------  ---------  --------------
+boost            generic    1.47.0+2       external
+boost_mpi        generic    1.47.0+1       external
+cfitsio          generic    3260+1         external    
+doxygen          generic    1.7.5.1+1      external    
+eigen            generic    2.0.16+1       external    
+eups             generic    1.2.20         external
+fftw             generic    3.1.2+1        external
+freetype         generic    2.3.8+1        external
+gsl              generic    1.8+1          external    
+libpng           generic    1.2.35+1       external
+minuit2          generic    5.22.00+1      external    
+mpich2           generic    1.0.8+1        external    
+mysqlclient      generic    5.1.50+1       external    
+mysqlpython      generic    1.2.3+1        external    
+numpy            generic    1.6.1+1        external
+pyfits           generic    2.4.0+1        external
+pysqlite         generic    2.6.3+1        external    
+python           generic    2.7.2+1        external
+sconsDistrib     generic    2.1.0+1        external
+sqlite           generic    3.7.8+1        external    
+swig             generic    1.3.36+2       external
+tcltk            generic    8.5.9+1        external
+wcslib           generic    4.4.4+1        external    
+xpa              generic    2.1.13+1       external    
+zlib             generic    1.2.5+1        external    
+#
+lsst             generic    4.4.0.1+1
+lssteups         generic    4.4.0.1+1
+sconsUtils       generic    3.4.5+1

@@ -1,0 +1,21 @@
+buildlog=$PWD/$buildlog
+
+# build TCL
+fetch external/tcltk/$version/tcl${version}-src.tar.gz
+unpack_tar_and_enter tcl${version}-src.tar.gz
+cd unix
+simplemake
+
+cd $builddir
+
+# build TK
+fetch external/tcltk/$version/tk${version}-src.tar.gz
+unpack_tar_and_enter tk${version}-src.tar.gz 
+cd unix
+doconfig --with-tcl=$installdir/lib
+make
+makeinstall
+
+
+
+

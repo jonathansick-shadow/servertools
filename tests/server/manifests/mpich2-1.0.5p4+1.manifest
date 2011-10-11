@@ -1,0 +1,5 @@
+EUPS distribution manifest for mpich2 (1.0.5p4+1). Version 1.0
+#
+# pkg  flavor  version   tablefile                            installation_directory    installID
+#----- ------- --------- ------------------------------------ -----------------
+mpich2 generic 1.0.5p4+1 external/mpich2/1.0.5p4/mpich2.table external/mpich2/1.0.5p4+1 lsstbuild:external/mpich2/1.0.5p4/mpich2-1.0.5p4.tar.gz

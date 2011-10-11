@@ -1,0 +1,6 @@
+setupRequired(cfitsio >= 3006.2)
+pathPrepend(LD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)
+
+Flavor=Darwin
+Flavor=DarwinX86
+pathPrepend(DYLD_LIBRARY_PATH, ${PRODUCT_DIR}/lib)

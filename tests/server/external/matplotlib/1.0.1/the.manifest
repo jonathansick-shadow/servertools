@@ -1,0 +1,4 @@
+>merge pkg=libpng
+>merge pkg=freetype
+>merge pkg=numpy
+>self installFile=matplotlib.bld

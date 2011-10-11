@@ -1,0 +1,11 @@
+[ -n "$LSST_HOME" ] || { echo "LSST_HOME is not set!"; false; }
+
+fetch external/eups/$version/eups-${version}.tar.gz
+unpack_tar_and_enter eups-${version}.tar.gz
+
+lsst_stack=`echo $EUPS_PATH | sed -e 's/:.*$//'`
+[ -n "$lsst_stack" ] && lsst_stack=$LSST_HOME
+
+echo ./configure --prefix=$lsst_stack/eups/$version --with-eups=$LSST_HOME --with-eups_dir=$lsst_stack/eups/$version
+./configure --prefix=$lsst_stack/eups/$version --with-eups=$LSST_HOME --with-eups_dir=$lsst_stack/eups/$version > $buildlog 2>&1
+makeinstall
