@@ -57,14 +57,16 @@ class UpdateDependentsCheckTestCase(unittest.TestCase):
         self.assertEquals("lsstbuild:external/pyfits/2.4.0/pyfits-2.4.0.tar.gz", rec[5])
 
         recs = rel.setUpgradedManifestRecords()
-        self.assertEquals(2, len(recs.keys()))
+        self.assertEquals(3, len(recs.keys()))
         self.assert_(recs.has_key("pyfits"))
         self.assertEquals("2.4.0+2", recs['pyfits'][2])
         self.assert_(recs.has_key("matplotlib"))
+        self.assert_(recs.has_key("numpy"))
         
         rel = UpdateDependents([("tcltk", "8.5.9+1")], self.serverroot)
         recs = rel.setUpgradedManifestRecords()
-        self.assertEquals(8, len(recs.keys()))
+        self.assertEquals(9, len(recs.keys()))
+        self.assert_(recs.has_key("tcltk"))
         self.assert_(recs.has_key("python"))
         self.assertEquals("2.7.2+3", recs['python'][2])
 

@@ -225,7 +225,7 @@ class UpdateDependents(object):
             self.setUpgradedManifestRecords()
 
         out = []
-        for prod in self.upgrecs:
+        for prod in self.upgblds:
             man = self.createUpgradedManifest(prod, self.upgrecs)
             fname = self.writeUpgradedManifest(man, prod, self.deps[prod], 
                                                self.upgblds[prod])
@@ -334,19 +334,7 @@ class UpdateDependents(object):
         if upgrecs is None:
             upgrecs = {}
 
-        # first put in the target products
-        for prod in self.prods:
-            if upgrecs.has_key(prod[0]):
-                continue
-            # open up the manifest for that product:
-            man = self.deployed.getManifest(prod[0], prod[1])
-            rec = man.getSelf()
-            if not rec:
-                # this may be a pseudo product
-                continue
-            upgrecs[prod[0]] = rec
-
-        # now go through the dependents
+        # first go through the dependents
         for prod in self.deps:
             if upgrecs.has_key(prod):
                 continue
@@ -361,6 +349,18 @@ class UpdateDependents(object):
                 # rec could be null if this is a pseudo product
                 # (which shouldn't happen)
                 upgrecs[prod] = rec
+
+        # next put in the target products (so as not to override)
+        for prod in self.prods:
+            if upgrecs.has_key(prod[0]):
+                continue
+            # open up the manifest for that product:
+            man = self.deployed.getManifest(prod[0], prod[1])
+            rec = man.getSelf()
+            if not rec:
+                # this may be a pseudo product
+                continue
+            upgrecs[prod[0]] = rec
 
         self.upgrecs = upgrecs
         return upgrecs
