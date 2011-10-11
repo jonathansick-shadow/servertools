@@ -122,7 +122,7 @@ class UpdateDependents(object):
         self.vcmp = vercmp
         if self.vcmp == None:
             self.vcmp = onvers.defaultVersionCompare
-        self.server = Repository(self.rootdir)
+        self.server = Repository(rootdir)
         self.deployed = DeployedManifests(self.server.getManifestDir(), 
                                           self.vcmp)
         self.log = log
@@ -140,8 +140,10 @@ class UpdateDependents(object):
             for prod in self.prods:
 
                 # merge list of dependents into full list
-                deps = self.deployed.dependsOn(prod[0], prod[1])
+                deps = self.deployed.dependsOn(prod[0])
                 for dep in deps:
+                    if dep[0] == prod[0] and dep[1] == prod[1]:
+                        continue
                     if not out.has_key(dep[0]) or \
                        self.vcmp(dep[1], out[dep[0]]) > 0:
                         out[dep[0]] = dep[1]
@@ -187,8 +189,8 @@ class UpdateDependents(object):
             deps = self.getDependents()
             for name in deps.keys():
                 if not upgblds.has_key(name):
-                    self.upgblds[name] = self.recommendNextBuildNumber(name, deps[name])
-                # self.upgblds[name] = onvers.substituteBuild(deps[name], nextBuild)
+                    upgblds[name] = self.recommendNextBuildNumber(name, deps[name])
+                # upgblds[name] = onvers.substituteBuild(deps[name], nextBuild)
 
             self.upgblds = upgblds
 
@@ -205,7 +207,7 @@ class UpdateDependents(object):
                                 it will be dropped and ignored.
         """
         deplbuild = self.deployed.getLatestBuildNumber(prodname, version)
-        undeplbuild = self.getLatestUndeployedBuildNumber(prodname, version)
+        undeplbuild = self.server.getLatestUndeployedBuildNumber(prodname, version)
         return max(deplbuild, undeplbuild) + 1
              
     def createManifests(self):
@@ -223,16 +225,18 @@ class UpdateDependents(object):
 
         out = []
         for prod in self.upgrecs:
-            man = self.createUpgradeManifestRecords(prod, self.upgrecs)
+            man = self.createUpgradedManifest(prod, self.upgrecs)
             fname = self.writeUpgradedManifest(man, prod, self.deps[prod], 
                                                self.upgblds[prod])
 
-            out.append( (prod, onvers.baseVersion, self.upgblds[prod], fname) )
+            out.append( (prod, onvers.baseVersion(self.deps[prod]), 
+                         self.upgblds[prod], fname) )
 
         # report the new products 
         return out
 
-    def writeUpgradedManifest(self, manifest, prod, version, build, filename=None):
+    def writeUpgradedManifest(self, manifest, prodname, version, build, 
+                              filename=None):
         """
         write out a manifest to its product directory.  The filename, by 
         default, will have the form "b*.manifest" where * is the new build 
@@ -257,7 +261,7 @@ class UpdateDependents(object):
             raise RuntimeError("Manifest file already exists; won't overwrite: " + out)
 
         with open(out, 'w') as fout:
-            man.write(fout)
+            manifest.write(fout)
 
         return out
 
@@ -271,14 +275,18 @@ class UpdateDependents(object):
                                   output manifest.  
         """
         if not upgradedRecords:
-            upgradedRecords = self.makeUpgradedManifestRecords()
+            upgradedRecords = self.setUpgradedManifestRecords()
 
         latest = self.deployed.getLatestVersion(prodname)
         if not latest:
             raise DeployedProductNotFound(prodname)
         man = self.deployed.getManifest(prodname, latest)
 
-        newman = Manifest(prodname, upds[prodname])
+        newbuild = self.upgblds.get(prodname)
+        if not newbuild:
+            newbuild = self.recommendNextBuildNumber(prodname, latest)
+        version = onvers.substituteBuild(latest, newbuild)
+        newman = Manifest(prodname, version)
         for rec in man:
             if rec[0] == '#':
                 newman.addComment(rec[-1])
@@ -321,7 +329,7 @@ class UpdateDependents(object):
                              manifest records (in the same format as upgrecs).  
         """
         if self.upgblds is None:
-            self.upgblds = self.getUpgradedDependents();
+            self.upgblds = self.setUpgradedBuildNumbers();
         if upgrecs is None:
             upgrecs = {}
 
@@ -331,8 +339,8 @@ class UpdateDependents(object):
 
             vers = self.deps[prod]
             if uselatest:
-                lastbuild = self.deployed.getLatestBuildNumber(prod, version)
-                vers = onvers.substituteBuild(version, lastbuild)
+                lastbuild = self.deployed.getLatestBuildNumber(prod, vers)
+                vers = onvers.substituteBuild(vers, lastbuild)
 
             rec = self.getUpdatedRecordFor(prod, vers, self.upgblds[prod])
             if rec:
@@ -360,22 +368,23 @@ class UpdateDependents(object):
         @return list   manifest column data for the requested product
         """
         # open up the specified version of this dependency
-        man = self.deployed.getManifest(prodname, oldvers)
+        man = self.deployed.getManifest(prodname, oldversion)
         rec = Dependency(man.getSelf())
 
         newversion = onvers.substituteBuild(oldversion, newbuild)
-        if oldversion != rec[rec.VERSION]:
+        if oldversion != rec.data[rec.VERSION]:
             # warn
             pass
-        oldversion = rec[rec.VERSION]
+        oldversion = rec.data[rec.VERSION]
 
         # updated references to the old version
-        for col in xrange(len(rec)):
-            p = idir.find(oldversion)
+        for col in xrange(len(rec.data)):
+            p = rec.data[col].find(oldversion)
             if p >= 0:
-                rec[col] = rec[col][:p] + newversion + rec[col][len(oldversion):]
+                rec.data[col] = rec.data[col][:p] + newversion + \
+                    rec.data[col][p+len(oldversion):]
 
-        return rec
+        return rec.data
 
     def getManifestFilenames(self):
         return map(lambda p: self.deployed.manifestFilename(p[0], p[1]), 

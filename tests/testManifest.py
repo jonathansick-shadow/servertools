@@ -325,8 +325,22 @@ class DeployedManifestsTestCase(unittest.TestCase):
         self.assert_(man.hasProduct("python"))
         self.assert_(man.hasProduct("numpy"))
 
+    def testDependsOn(self):
+        deps = self.deployed.dependsOn("numpy", "1.6.1+1")
+        self.assertEquals(3, len(deps))
+        pnames = map(lambda p: p[0], deps)
+        self.assert_("matplotlib" in pnames)
+        self.assert_("pyfits" in pnames)
+        self.assert_("numpy" in pnames)
+        
+        deps = self.deployed.dependsOn("tcltk", "8.5.9+1")
+        self.assertEquals(9, len(deps))
+        pydep = map(lambda y: y[1], 
+                    filter(lambda p: p[0] == "python", deps))
+        self.assertEquals("2.7.2+2", pydep[0])
 
-
+        deps = self.deployed.dependsOn("matplotlib")
+        self.assertEquals(1, len(deps))
 
 if __name__ == "__main__":
     unittest.main()

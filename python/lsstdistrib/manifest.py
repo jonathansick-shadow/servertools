@@ -5,7 +5,7 @@ software stack.  The main functionality is provided via the Manifest class.
 from __future__ import absolute_import
 from __future__ import with_statement
 
-import sys, os, re
+import sys, os, re, cStringIO
 from subprocess import Popen, PIPE
 from copy import copy
 
@@ -183,13 +183,13 @@ class Manifest(object):
         """
         return self.recs.has_key(self._reckey(pkgname, flavor, version))
 
-    def hasProduct(self, pkgname):
+    def hasProduct(self, prodname):
         """return true if this manifest has a record matching the
         package name
 
-        @param pkgname    the name of the package
+        @param prodname    the name of the package
         """
-        return bool(filter(lambda k: k.startswith(pkgname+':'), self.keys))
+        return bool(filter(lambda k: k.startswith(prodname+':'), self.keys))
 
     def getSelf(self):
         """
@@ -202,6 +202,18 @@ class Manifest(object):
         return the record data that applies to the owning product itself.
         """
         return self.recs.get(self._reckey(prodname, flavor, version))
+
+    def getProduct(self, prodname):
+        """
+        return the last occurance of the record for the given product name
+        in the manifest or None if it is not found in this manifest.  Normally,
+        there should only be one occurance of a product in the manifest.
+        @param prodname    the name of the product for which a record is desired
+        """
+        keys = filter(lambda k: k.startswith(prodname+':'), self.keys)
+        if len(keys) == 0:
+            return None
+        return self.recs[keys[-1]]
 
     def recordToString(self, pkgname, flavor, version):
         """return the requested record in manifest format.
@@ -220,7 +232,7 @@ class Manifest(object):
     def __repr__(self):
         """return all lines of the manifest in proper manifest format"""
         out = cStringIO.StringIO()
-        self.printRecord(out)
+        self.write(out)
         return out.getvalue()
 
     def str(self):
@@ -254,7 +266,7 @@ class Manifest(object):
         def __iter__(self):
             return self
         def next(self):
-            if self._nxtIdx > len(self._keys):
+            if self._nxtIdx >= len(self._keys):
                 raise StopIteration()
             try:
                 return self._recs[self._keys[self._nxtIdx]]
@@ -376,21 +388,21 @@ class DeployedManifests(object):
         if flavor or version:
             pattern += mflav % (flavor or "\S+")
             if version:
-                pattern += mvers % version
+                pattern += mvers % re.sub(r'\+', r'\+', version)
 
         cmd = "grep -lP".split()
-        cmd += self.latestManifests()
+        cmd.append(pattern)
+        cmd += self.latestManifestFiles()
 
         srch = Popen(cmd, executable="/bin/grep", stdout=PIPE, stderr=PIPE, 
                      cwd=self.dir)
         (cmdout, cmderr) = srch.communicate()
-        matchedFiles = cmdout.readlines()
-        if srch.wait():
-            msg = "Problem scanning manifest files:\n" + \
-                "".join(cmderr.readlines())
+        matchedFiles = cmdout.strip().split("\n")
+        if srch.returncode:
+            msg = "Problem scanning manifest files:\n" + cmderr
             raise RuntimeError(msg)
 
-        return matchedFiles
+        return map(lambda f: self.productFromFilename(f), matchedFiles)
         
         
     def _paircmp(self, pair1, pair2):
@@ -460,6 +472,15 @@ class DeployedManifests(object):
 
         return out
 
+    def latestManifestFiles(self):
+        """
+        return the paths to the manifest files for the products returned 
+        by latestProducts()
+        """
+        return map(lambda f: os.path.join(self.dir, f), 
+                   map(lambda p: self.manifestFilename(*p), 
+                       self.latestProducts()))
+
     def getLatestBuildNumber(self, prodname, version):
         """
         return the largest build number that has been deployed for the given 
@@ -497,7 +518,7 @@ class DeployedManifests(object):
 
     def productFromFilename(self, fname):
         """
-        return a tuple-pair contianing the product name and version that 
+        return a tuple-pair containing the product name and version that 
         the file with the given manifest filename describes.  It assumes
         the filename is of the form, "product-version.manifest".  The 
         trailing ".manifest" extension is optional.  The version (the second 
@@ -506,6 +527,7 @@ class DeployedManifests(object):
         @param fname    the filename
         @return tuple   the product-version pair.  
         """
+        fname = os.path.basename(fname)
         if fname.endswith(self.extension):
             fname = fname[:-1*len(self.extension)]
 
@@ -523,7 +545,9 @@ class DeployedManifests(object):
                                 self.manifestFilename(prodname, version, flavor))
         if not os.path.exists(filename):
             raise DeployedProductNotFound(prodname, version, flavor)
-        return Manifest.fromFile(filename)
+        if not flavor:  
+            flavor = "generic"
+        return Manifest.fromFile(filename, flavor, prodname, version)
 
 
 class DeployedProductNotFound(Exception):
