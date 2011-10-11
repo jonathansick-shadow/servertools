@@ -262,7 +262,9 @@ class Manifest(object):
         def __init__(self, manifest):
             self._keys = manifest.keys[:]
             self._recs = manifest.recs.copy()
-            self._nxtIdx = (len(self._keys) and 0) or 1
+            self._nxtIdx = 0
+            if len(self._keys) == 0:
+                self._nxtIdx = 1
         def __iter__(self):
             return self
         def next(self):
