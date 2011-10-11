@@ -23,6 +23,10 @@ class Repository(object):
     def getManifestDir(self):
         return os.path.join(self.root, self.manifestDirName)
 
+    def getManifestFile(self, product, version):
+        return os.path.join(self.getManifestDir(), 
+                            "%s-%s%s" % (product, version, manifest.extension))
+
     def getExternalProductRoot(self):
         return os.path.join(self.root, self.externalDirName)
 

@@ -3,7 +3,7 @@ functions related to releasing new versions of products.
 """
 from __future__ import absolute_import
 
-import sys, os
+import sys, os, re, shutil
 from .manifest import DeployedManifests, Manifest, Dependency
 from .server   import Repository
 from . import version as onvers
@@ -391,4 +391,98 @@ class UpdateDependents(object):
                    self.getUpdatedDependents().items())
         
 
+class Release(object):
+    """
+    An operation class that will deploy manifest files in the product directories
+    into the manifests directory, making their products available to users for 
+    download.  
+    """
+
+    def __init__(self, manifests, rootdir, log=None):
+        """
+        instantiate the class
+        @param manifests   a list of manifests identified by a 3- or 4-tuple.  The 
+                             first three elements are the product name, the version
+                             (with a build number), and a path to the manifest file.
+                             The optional 4th element is a boolean indicating whether
+                             this is an external product.  If not provided, its status
+                             will be determined by examinging the server.  
+        @param rootdir     the root directory of the distribution server
+        @param log         a file stream for sending messages.
+        """
+        self.repos = Repository(rootdir)
+        self.manifests = manifests
+        self.log = log
+
+    def parseProductManifestPath(mpath):
+        fields = mpath.split('/')
+        if len(fields) < 3:
+            raise Runtime("bad product name syntax: " + mpath)
+        out = fields[-3:]
+
+        mat = re.match(r'^b(\d+).manifest', out[2])
+        if mat:
+            out[1] = onvers.substituteBuild(out[1], mat.group(1))
+
+        if os.path.exists(mpath):
+            out[2] = mpath
+        isext = len(fields) > 2 and fields[-3] == 'external'
+        out.append(isext)
+
+        return out
+
+    parseProductManifestPath = staticmethod(parseProductManifestPath)
+
+    def makeDestPath(self, mandata):
+        return self.repos.getManifestFile(mandata[0], mandata[1])
+
+    def releaseAll(self, overwrite=False, atomic=False):
+        """
+        release all configured manifest files.  
+        @param overwrite  if False, the copy will fail if the destination file
+                            already exists.  Otherwise, overwrite the destination
+                            file if it exists.
+        @param atomic     if False, try to copy as many files as possible; 
+                            otherwise, attempt an atomic operation, rolling back
+                            the copies if any errors are encountered.
+        """
+        failed = []
+        copied = []
+        try:
+            for man in self.manifests:
+                src = man[2]
+                if not os.path.exists(src):
+                    ext = (len(man) > 3 and man[3]) or None
+                    src = os.path.join(self.repos.getProductDir(man[0], man[1], asExt=ext),
+                                       os.path.basename(man[2]))
+
+                dest = self.makeDestPath(man)
+                if not overwrite and os.path.exists(dest):
+                    failed.append( (src, dest, 
+                                    "deployed manifest already exists") )
+                    if atomic:  
+                        raise RuntimeError("%s: %s" % (failed[-1][2], dest))
+                    elif self.log:
+                        print >> self.log, "Destination file already exists: %s" % dest
+                    continue
+
+                try:
+                    shutil.copyfile(src, dest)
+                    copied.append(dest)
+                    if not atomic and self.log:
+                        print >> self.log, "Deployed", os.path.basename(dest)
+                except OSError, ex:
+                    failed.append( (src, dest, str(ex)) )
+                    if atomic:  raise
+                    elif self.log:
+                        print >> self.log, "Trouble copying file: %s: %s" % \
+                            (str(ex), man[2])
+
+        finally:
+            if atomic and failed:
+                for filepath in copied:
+                    try:
+                        os.remove(filepath)
+                    except Exception:
+                        pass
 

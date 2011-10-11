@@ -1,19 +1,17 @@
 #! /usr/bin/env python
 #
 from __future__ import with_statement
-import sys, os, re, optparse
+import sys, os, re, optparse, pdb
 
-from lsstdistrib.release import UpdateDependents
+from lsstdistrib.release import Release
 
 prog = os.path.basename(sys.argv[0])
 if prog.endswith(".py"):
     prog = prog[:-3]
 
-usage = "%(prog)s [ -h ] [ -vs ] -d DIR product ..."
+usage = "%(prog)s [ -h ] [ -vs ] -d DIR manifest ..."
 description = \
-"""Create new manifest files for all dependents of the given products, up-reving them
-to use this products.  Normally, the products that are specified have been recently
-released.  
+"""Copy new manifest files into the manifests directory.  
 """
 
 log = sys.stderr
@@ -30,34 +28,19 @@ def main():
         fail("server root given with -d is not an existing directory:\n" + 
              opts.serverdir, 2)
     if len(args) < 1:
-        fail("no products specified", 2)
+        fail("no manifests specified", 2)
 
+    global log
     if opts.silent:
         log = None
 
-    products = []
+    manifests = []
     for arg in args:
-        products.append(parseProduct(arg))
+        manifests.append(Release.parseProductManifestPath(arg))
 
-    uprev = UpdateDependents(products, opts.serverdir)
-    updated = uprev.createManifests()
+    releaser = Release(manifests, opts.serverdir, log)
+    failed = releaser.releaseAll(opts.overwrite, opts.atomic)
 
-    if not opts.silent:
-        for prod in updated:
-            filepath = prod[3]
-            if filepath.startswith(opts.serverdir + '/'):
-                filepath = filepath[len(opts.serverdir)+1:]
-            print filepath
-
-def parseProduct(prodpath):
-    fields = prodpath.split('/')
-    if len(fields) < 2:
-        raise Runtime("bad product name syntax: " + prodpath)
-    out = fields[-2:]
-    isext = len(fields) > 2 and fields[-3] == 'external'
-    out.append(isext)
-        
-    return out
 
 def setopts():
     parser = optparse.OptionParser(prog=prog, usage=usage, 
@@ -69,6 +52,14 @@ def setopts():
     parser.add_option("-d", "--server-dir", action="store", dest="serverdir",
                       metavar="DIR", default=defaultServerRoot,
                       help="the root directory of the distribution server")
+    parser.add_option("-a", "--atomic", action="store_true", dest="atomic", 
+                      default=False,
+                      help="roll back any successfully copied manifests upon" + 
+                      " eror")
+    parser.add_option("-o", "--overwrite", action="store_true", dest="overwrite",
+                      default=False,
+                      help="roll back any successfully copied manifests upon" + 
+                      " eror")
 
     return parser
 
@@ -89,5 +80,3 @@ if __name__ == "__main__":
             print >> log, "%s: %s" % (prog, str(ex))
         sys.exit(ex.exitcode)
 
-
-        

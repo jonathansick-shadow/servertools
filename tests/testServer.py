@@ -27,6 +27,9 @@ class RepositoryTestCase(unittest.TestCase):
                           self.repos.getTagListFile('current'))
         self.assertEquals(os.path.join(self.serverroot, "manifests"),
                           self.repos.getManifestDir())
+        self.assertEquals(os.path.join(self.serverroot, 
+                                       "manifests/python-2.7.2.manifest"),
+                          self.repos.getManifestFile("python", "2.7.2"))
         
     
     def testGetProductDir(self):
