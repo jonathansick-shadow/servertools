@@ -1,6 +1,7 @@
 """
 functions related to releasing new versions of products.
 """
+from __future__ import with_statement
 from __future__ import absolute_import
 
 import sys, os, re, shutil
