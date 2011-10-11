@@ -370,7 +370,10 @@ class UpdateDependents(object):
         """
         # open up the specified version of this dependency
         man = self.deployed.getManifest(prodname, oldversion)
-        rec = Dependency(man.getSelf())
+        rec = man.getSelf()
+        if not rec:
+            return None
+        rec = Dependency(rec)
 
         newversion = onvers.substituteBuild(oldversion, newbuild)
         if oldversion != rec.data[rec.VERSION]:
