@@ -49,7 +49,7 @@ class Repository(object):
             elif os.path.exists(epdir):
                 pdir = epdir
             else:
-                raise ProductNotFound(prodname)
+                raise manifest.DeployedProductNotFound(prodname)
         elif asExt:
             pdir = epdir
         else:
