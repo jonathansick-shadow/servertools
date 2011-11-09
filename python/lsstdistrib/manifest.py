@@ -258,6 +258,16 @@ class Manifest(object):
             else:
                 strm.write(fmt % tuple(self.recs[key]))
 
+    def getDeps(self):
+        """
+        return an ordered list of Dependencies in this manifest
+        """
+        out = []
+        for key in self.keys:
+            out.append(Dependency(self.recs[key]))
+
+        return out
+
     class _iterator(object):
         def __init__(self, manifest):
             self._keys = manifest.keys[:]

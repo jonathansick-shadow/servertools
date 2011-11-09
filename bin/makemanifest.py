@@ -301,7 +301,9 @@ class Loader(object):
 
         id = "tarball"
         if not parms.has_key("pkgpath"):
-            parms['pkgpath'] = (curinfo and curinfo[1]) or None
+            parms['pkgpath'] = None
+            if curinfo and len(curinfo) > 1:
+                parms['pkgpath'] = curinfo[1]
 
             if parms.get('installFile','').endswith('.bld'):
                 id="lsstbuild:"
@@ -327,7 +329,9 @@ class Loader(object):
         id = "tarball"
         if not parms.has_key("pkgpath"):
             curinfo = self.oldcurrent.lookup(parms['pkg'])
-            parms['pkgpath'] = (curinfo and curinfo[1]) or None
+            parms['pkgpath'] = None
+            if curinfo and len(curinfo) > 1:
+                parms['pkgpath'] = curinfo[1]
 
             if parms.get('installFile','').endswith('.bld'):
                 id="lsstbuild:"
