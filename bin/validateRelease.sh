@@ -15,7 +15,8 @@ function help() {
     echo "  -h          print this help and exit"
 }
 
-while getopts "b:r:h"; do
+while getopts "b:r:h" opt; do
+  case $opt in 
     b)
       stackbase=$OPTARG ;;
     r)
@@ -23,27 +24,36 @@ while getopts "b:r:h"; do
     h)
       help
       exit 0 ;;
-    \?)
-      echo "Invalid option: -$OPTARG"
-      exit 1 ;;
-    :)
-      echo "Option -$OPTARG requires an argument"
-      exit 1 ;;
+  esac
 done
 
 [ -z "$refstack" ]    && refstack=$stackbase/ref
 [ -z "$teststack" ]   && teststack=$stackbase/test
 [ -z "$serverstage" ] && serverstage=$stackbase/pkgs
-[ -d "$refstack" ] && {
+[ -d "$refstack" ] || {
     echo "Reference stack directory not found: $refstack"
     exit 2
 }
-[ -d "$teststack" ] && {
+[ -d "$teststack" ] || {
     echo "Reference stack directory not found: $teststack"
     exit 2
 }
-[ -d "$serverstage" ] && {
+[ -d "$serverstage" ] || {
     echo "Product staging directory not found: $serverstage"
     exit 2
 }
 
+function clearlsst {
+    setuppkgs=(`printenv | grep '^SETUP_' | sed -e 's/=.*$//'`)
+    for var in ${setuppkgs[@]}; do
+        pkghome=`echo $var | sed -e 's/SETUP_//' -e 's/$/_DIR/'`
+        eval $var=
+        eval $pkghome=
+    done
+    EUPS_PATH=
+}
+
+clearlsst
+export LSST_DEVEL=$teststack
+export LSST_HOME=$refstack
+source 
