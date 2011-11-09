@@ -56,4 +56,4 @@ function clearlsst {
 clearlsst
 export LSST_DEVEL=$teststack
 export LSST_HOME=$refstack
-source 
+
