@@ -1,1 +1,4 @@
 setupRequired(python >= 2.7.1)
+
+envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
+envPrepend(PATH, ${PRODUCT_DIR}/bin)
