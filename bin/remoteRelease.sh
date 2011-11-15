@@ -1,8 +1,15 @@
 #! /bin/bash
 #
 prog=`basename $0`
-adjustCmd=/home/rplante/svn/servertools-trunk/bin/adjustmanfortags.py
+defserverdir=$HOME/softstack/pkgs/test/w12a
+servertools=/home/rplante/svn/servertools-trunk
+adjustCmd=adjustmanfortags.py
 tag=current
+
+[ -z "SETUP_DEVENV_SERVERTOOLS" ] && {
+    export PYTHONPATH=$servertools/python
+    PATH=${servertools}:$PATH
+}
 
 function taggedVersion {
     echo $1 | sed -e 's/[\+\-].*$//'
@@ -42,7 +49,7 @@ while getopts "d:h" opt; do
 done
 shift $(($OPTIND - 1))
 
-[ -z "$serverdir" ] && serverdir=$HOME/softstack/pkgs/test/w12a
+[ -z "$serverdir" ] && serverdir=$defserverdir
 prodname=$1
 version=$2
 manifest=$3
