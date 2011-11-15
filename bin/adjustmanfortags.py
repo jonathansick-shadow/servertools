@@ -5,10 +5,10 @@ from lsstdistrib.manifest import Manifest
 from lsstdistrib.tags import TagDef
 
 def options():
-    usage="%prog [ -t ] -d DIR manifest [ tagfile ]"
+    usage="%prog [ -t TAG ] -d DIR manifest [ tagfile ]"
     parser = optparse.OptionParser(usage=usage)
     parser.add_option("-d", "--server-directory", dest="sdir", action="store",
-                      help="the root directory for the server")
+                      metavar="DIR", help="the root directory for the server")
     parser.add_option("-t", "--tag", dest="tag", action="store",
                       default="current",
                       help="the tag whose definitions we should adjust to")

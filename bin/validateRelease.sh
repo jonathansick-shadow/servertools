@@ -138,9 +138,13 @@ function productDir {
     echo $builddir/`productDirName $1 $2`
 }
 function manifestForVersion {
+    local version=$1
+    [ -z "$version" ] && version=rc
+    local pre=$2
+    [ -z "$pre" ] && pre=rc
     local ext=`echo $version | sed -e 's/^.*\([+-]\)/\1/'`
     local bn=`echo $ext | sed -e 's/^.//'`
-    echo "rc$bn.manifest"
+    echo "$pre$bn.manifest"
 } 
 
 function extractProductSource {
