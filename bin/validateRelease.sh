@@ -210,12 +210,12 @@ function installProduct {
 
 function eupscreate {
     EUPS_PATH=${teststack}:$refstack
-    echo eups distrib create -j -d lsstbuild -s $serverstage      \
-                 -S srctardir=$builddir -S manifestPrefix=rc      \
+    echo eups distrib create -j -f generic -d lsstbuild -s $serverstage \
+                 -S srctardir=$builddir -S manifestPrefix=rc            \
                  $prodname $version
-    eups distrib create -j -d lsstbuild -s $serverstage           \
-                 -S srctardir=$builddir -S manifestPrefix=rc      \
-                 $prodname $version                            || \
+    eups distrib create -j -f generic --d lsstbuild -s $serverstage     \
+                 -S srctardir=$builddir -S manifestPrefix=rc            \
+                 $prodname $version                                  || \
     {
         echo "${prog}: Problem packaging product via eups distrib create"
         return 7
