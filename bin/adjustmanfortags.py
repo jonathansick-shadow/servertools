@@ -45,6 +45,7 @@ def main():
         dep = deps[i]
         if dep.data[dep.NAME] not in depnames:
             if dep.data[dep.NAME] == prodname:
+                # dep.data[dep.FLAVOR] = "generic"
                 adjusted.insert(0, dep)
             else:
                 depver = tagged.getVersion(dep.data[dep.NAME])

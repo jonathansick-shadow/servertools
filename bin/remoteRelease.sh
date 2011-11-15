@@ -6,9 +6,9 @@ servertools=/home/rplante/svn/servertools-trunk
 adjustCmd=adjustmanfortags.py
 tag=current
 
-[ -z "SETUP_DEVENV_SERVERTOOLS" ] && {
+[ -z "$SETUP_DEVENV_SERVERTOOLS" ] && {
     export PYTHONPATH=$servertools/python
-    PATH=${servertools}:$PATH
+    PATH=${servertools}/bin:$PATH
 }
 
 function taggedVersion {
@@ -68,8 +68,13 @@ cd $serverdir
     echo "${prog}: server directory does not exist: $serverdir"
     exit 1
 }
-pushd $pdir
+[ -d "$pdir" ] || {
+    echo "${prog}: product directory does not exist: $pdir"
+    exit 1
+}
+pushd $pdir > /dev/null 2>&1
 bmanifest=`echo $manifest | sed -e "s/^.*\($bn.manifest\)$/b\1/"`
+echo $adjustCmd -d $serverdir -t $tag $manifest \> $bmanifest
 $adjustCmd -d $serverdir -t $tag $manifest > $bmanifest || {
     echo "$prog: Failed to standardize manifest file"
     exit 2
@@ -78,9 +83,9 @@ grep -qs $prodname/$taggedas $bmanifest || {
     echo "$prog: Failed to standardize manifest file (missing data)"
     exit 2
 }
-popd
-exit 0
+popd > /dev/null 2>&1
 
 # release the package via its manifest
-ext=`echo $bmanifest | sed -e 's/^b/\+/'`
-cp $pdir/$bmanifest $prodname-$version$ext || exit 3
+#ext=`echo $bmanifest | sed -e 's/^b/\+/'`
+echo cp $pdir/$bmanifest manifests/$prodname-$version.manifest
+cp $pdir/$bmanifest manifests/$prodname-$version.manifest || exit 3
