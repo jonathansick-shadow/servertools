@@ -15,5 +15,7 @@ function reposExtract {
         prodname=$1
     fi
 
-    svn export $LSST_DMS/$prodname/$2 $3 || return $?
+    echo svn export $LSST_DMS/$prodname/tags/$2 $3
+    { svn export $LSST_DMS/$prodname/tags/$2 $3 || return $?; } | \
+        grep -v $3
 }

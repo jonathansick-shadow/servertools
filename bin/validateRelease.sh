@@ -33,6 +33,7 @@ function help {
     echo "Options:"
     echo "  -b DIR      the base directory for the release-related directories"
     echo "  -r DIR      the reference stack directory"
+    echo "  -j NUM      use NUM threads when building"
     echo "  -p          purge previous attempts to validate before executing command"
     echo "  -h          print this help and exit"
     commands
@@ -54,13 +55,16 @@ function commands {
 }
 
 prepurge=
+usebuildthreads=
 
-while getopts "b:r:h" opt; do
+while getopts "j:b:r:ph" opt; do
   case $opt in 
     b)
       stackbase=$OPTARG ;;
     r)
       refstack=$OPTARG ;;
+    j)
+      usebuildthreads=$OPTARG ;;
     p) 
       prepurge=1 ;;
     h)
@@ -68,6 +72,7 @@ while getopts "b:r:h" opt; do
       exit 0 ;;
   esac
 done
+shift $(($OPTIND - 1))
 
 [ $# -lt 1 ] && {
     echo "${prog}: Missing arguments: product version command"
@@ -108,6 +113,9 @@ done
 }
 
 function clearlsst {
+    [ -n "$SETUP_EUPS" ] && {
+        eval `$EUPS_DIR/bin/eups_setup --unsetup lsst`
+    }
     setuppkgs=(`printenv | grep '^SETUP_' | sed -e 's/=.*$//'`)
     for var in ${setuppkgs[@]}; do
         pkghome=`echo $var | sed -e 's/SETUP_//' -e 's/$/_DIR/'`
@@ -123,16 +131,21 @@ function taggedVersion {
     echo $1 | sed -e 's/[\+\-].*$//'
 }
 
-function prodductDirName {
+function productDirName {
     echo "$1-$2"
 }
-function prodductDir {
-    echo $builddir/`prodductDirName $1 $2`
+function productDir {
+    echo $builddir/`productDirName $1 $2`
 }
+function manifestForVersion {
+    local ext=`echo $version | sed -e 's/^.*\([+-]\)/\1/'`
+    local bn=`echo $ext | sed -e 's/^.//'`
+    echo "rc$bn.manifest"
+} 
 
 function extractProductSource {
     cd $builddir
-    pdname=`prodductDirName $prodname $taggedas`
+    pdname=`productDirName $prodname $taggedas`
     reposExtract $prodname $taggedas $pdname || {
         echo "$prog: failed to extract source code"
         return 2
@@ -145,9 +158,15 @@ function extractProductSource {
 
 function buildProduct {
     cd $pdir
+    EUPS_PATH=${teststack}:$refstack
     setup -r .
+
+    threadarg=
+    [ -n "$1" ] && threadarg="-j $1"
+
     buildok=
-    scons && buildok=1
+    echo scons opt=3 $threadarg
+    scons opt=3 $threadarg && buildok=1
     if [ -n "$buildok" ]; then
         mkdir -p "tests/.tests"
     else
@@ -163,7 +182,7 @@ function checkTests {
         echo "Note: Apparently no tests were provided"
         return 0
     }
-    failed=(`ls *.failed`)
+    failed=(`ls *.failed 2> /dev/null`)
     [ ${#failed[@]} -gt 0 ] && {
         howmany="${#failed[@]} test"
         [ ${#failed[@]} -gt 1 ] && howmany="${howmany}s"
@@ -176,8 +195,10 @@ function checkTests {
 function installProduct {
     EUPS_PATH=${teststack}:$refstack
     cd $pdir
-    { scons install declare version=$version && \
-      [ ! -d "$teststack/$flavor/$prodname/$version" ] } || {
+    setup -r .
+    echo scons opt=3 version=$version install declare
+    { scons opt=3 version=$version install declare && \
+      [ -d "$teststack/$flavor/$prodname/$version" ]; } || {
         echo "${prog}: Product failed to install into test stack"
         return 6
     }
@@ -185,7 +206,13 @@ function installProduct {
 
 function eupscreate {
     EUPS_PATH=${teststack}:$refstack
-    eups distrib create || {
+    echo eups distrib create -j -d lsstbuild -s $serverstage      \
+                 -S srctardir=$builddir -S manifestPrefix=rc      \
+                 $prodname $version
+    eups distrib create -j -d lsstbuild -s $serverstage           \
+                 -S srctardir=$builddir -S manifestPrefix=rc      \
+                 $prodname $version                            || \
+    {
         echo "${prog}: Problem packaging product via eups distrib create"
         return 7
     }
@@ -201,12 +228,12 @@ function deployPackage {
         echo "${prog}: Missing product export directory: $prodname/$taggedas"
         return 8
     }
-    [ -f "$prodname/$aggedas/$prodname-${taggedas}.tar.gz" ] || {
+    [ -f "$prodname/$taggedas/$prodname-${taggedas}.tar.gz" ] || {
         echo "${prog}: Missing product tarball: $prodname-$taggedas.tar.gz"
         return 8
     }
-    mafile=`manifestForVersion $version`
-    [ -f "$prodname/$aggedas/$manfile" ] || {
+    manfile=`manifestForVersion $version`
+    [ -f "$prodname/$taggedas/$manfile" ] || {
         echo "${prog}: Missing manifest file: $manfile"
         return 8
     }
@@ -220,7 +247,7 @@ function eupsinstall {
         echo "${prog}: Failed to install product; install directory not found"
         return 9
     }
-    { eups list $product $version | grep -s $version } || {
+    { eups list $product $version | grep -sq $version; } || {
         echo "${prog}: Failed to declare product"
         return 9
     }
@@ -235,12 +262,13 @@ function cleanInstall {
         echo "  verison=$version"
         return 10
     fi
+
     EUPS_PATH=${stack}
     eups distrib clean $prodname $version
-    if { eups list $prodname $version | grep -s $prodname; }; then
+    if { eups list $prodname $version 2> /dev/null | grep -sq $version; }; then
         eups remove --force $prodname $version
     fi
-    if { eups list $prodname $version | grep -s $prodname; }; then
+    if { eups list $prodname $version 2> /dev/null | grep -sq $version; }; then
         echo "${prog}: Failed to remove product from test stack"
         return 10
     fi
@@ -250,7 +278,7 @@ function cleanInstall {
     if [ -d "$teststack/$prodname" ]; then
         local tmp=`ls $teststack/$prodname | wc -l`
         [ $tmp = "0" ] && rmdir $teststack/$prodname
-    if 
+    fi 
 }
 
 function cleanBuildDir {
@@ -261,20 +289,27 @@ function cleanBuildDir {
         echo "  taggedas=$taggedas"
         return 100
     fi
-    pdname=`prodductDirName $prodname $taggedas`
+    pdname=`productDirName $prodname $taggedas`
     [ -e "$builddir/${pdname}.tar.gz" ] && rm -rf $builddir/${pdname}.tar.gz
     [ -e "$builddir/$pdname" ] && rm -rf $builddir/$pdname
 }
 
 clearlsst
 # export LSST_DEVEL=$teststack
+export LSST_DEVEL=
 export LSST_HOME=$refstack
 source $LSST_HOME/loadLSST.sh
 
 prodname=$1 ; shift
 version=$1 ; shift
 command=$1 ; shift
-taggedas=`taggedVersion $version`
+
+if { echo $version | grep -qsE '[\+][0-9]+'; }; then
+    taggedas=`taggedVersion $version`
+else
+    taggedas=$version
+    version=${taggedas}+1
+fi
 pdir=`productDir $prodname $taggedas`
 
 function do_extract {
@@ -292,11 +327,16 @@ function do_test {
         echo "Product is already built and tests have run"
     else
         echo "Building product and running tests"
-        buildProduct || return $?
+        buildProduct $usebuildthreads || return $?
     fi
 
     echo "Confirming tests have passed"
     checkTests
+    if [ "$?" != "0" ]; then
+        echo "Failed tests detected; will try rebuilding"
+        buildProduct 
+        checkTests || return $?
+    fi
 }
 
 function do_install {
@@ -326,7 +366,7 @@ function do_deploy {
 
 function do_download {
     echo "Checking availability on test server"
-    { eups distrib list $prodname $version 2>&1 | grep -s $version; } || {
+    { eups distrib list $prodname $version 2>&1 | grep -sq $version; } || {
         do_deploy || return $?
     }
     echo "Installing product from test server"
@@ -340,8 +380,8 @@ function do_clean {
     [ "$ok1" -eq 100 ] && return $ok1
     cleanBuildDir
     local ok2=$?
-    [ "ok2" -eq 100 ] && return $ok2
-    [ "$ok1" -ne 0 ] && return $ok1
+    [ -n "$ok2" -a "$ok2" -eq 100 ] && return $ok2
+    [ -n "$ok2" -a "$ok1" -ne 0 ] && return $ok1
     return $ok2
 }
 
@@ -351,8 +391,10 @@ function do_purge {
     cleanInstall $refstack || return $?
 }
 
-[ -n "$prepurge" ] && do_purge || exit $?
-    
+[ -n "$prepurge" ] && {
+    do_purge || exit $?
+}
+
 case $command in
     extract)
       do_extract || exit $? ;;
@@ -373,6 +415,4 @@ case $command in
     *)
       echo "Unknown command: $command" ;;
 esac
-
-
 

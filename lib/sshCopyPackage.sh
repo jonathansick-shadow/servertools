@@ -5,7 +5,8 @@
 #                     path and the contains of the directory will be 
 #                     replicated.
 function copyPackage {
-    tar cf - $1 | ssh $packageServerName 'cd $testPackageServerDir; tar xf -'
+    echo tar cf - $1 \| ssh $packageServerName "\"cd $testPackageServerDir; tar xf -\""
+    tar cf - $1 | ssh $packageServerName "cd $testPackageServerDir; tar xf -"
     return $?
 }
 
