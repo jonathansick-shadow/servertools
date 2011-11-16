@@ -63,7 +63,6 @@ else
 fi
 pdir=$serverdir/$prodname/$taggedas
 
-cd $serverdir
 [ -d "$serverdir" ] || {
     echo "${prog}: server directory does not exist: $serverdir"
     exit 1
@@ -72,6 +71,7 @@ cd $serverdir
     echo "${prog}: product directory does not exist: $pdir"
     exit 1
 }
+cd $serverdir
 pushd $pdir > /dev/null 2>&1
 bmanifest=`echo $manifest | sed -e "s/^.*\($bn.manifest\)$/b\1/"`
 echo $adjustCmd -d $serverdir -t $tag $manifest \> $bmanifest
