@@ -77,6 +77,7 @@ bmanifest=`echo $manifest | sed -e "s/^.*\($bn.manifest\)$/b\1/"`
 echo $adjustCmd -d $serverdir -t $tag $manifest \> $bmanifest
 $adjustCmd -d $serverdir -t $tag $manifest > $bmanifest || {
     echo "$prog: Failed to standardize manifest file"
+    [ -f "$bmanifest" -a ! -s "$bmanifest" ] && rm $bmanifest
     exit 2
 }
 grep -qs $prodname/$taggedas $bmanifest || {
