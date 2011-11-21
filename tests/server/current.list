@@ -3,6 +3,9 @@ EUPS distribution current version list. Version 1.0
 #
 # pkg            flavor     version        extra_dir  pkg_dir
 #--------------  ---------  -------------  ---------  --------------
+#
+# external
+#
 boost            generic    1.47.0+2       external
 boost_mpi        generic    1.47.0+1       external
 cfitsio          generic    3260+1         external    
@@ -29,6 +32,11 @@ wcslib           generic    4.4.4+1        external
 xpa              generic    2.1.13+1       external    
 zlib             generic    1.2.5+1        external    
 #
+# lsst
+#
 lsst             generic    4.4.0.1+1
 lssteups         generic    4.4.0.1+1
 sconsUtils       generic    3.4.5+1
+#
+# pseudo
+#

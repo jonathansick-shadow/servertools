@@ -8,7 +8,11 @@ function copyPackage {
     echo tar cf - $1 \| ssh $packageServerName "\"cd $testPackageServerDir; tar xf -\""
     tar cf - $1 | ssh $packageServerName "cd $testPackageServerDir; tar xf -"
     manfile=`manifestForVersion $version`
-    ssh $packageServerName $releaseCmd $prodname $version $manfile
+
+    tagopt=
+    [ -n "$2" ] && tagopt="-t $2"
+    echo ssh $packageServerName $releaseCmd $tagopt $prodname $version $manfile
+    ssh $packageServerName $releaseCmd $tagopt $prodname $version $manfile
     
     return $?
 }

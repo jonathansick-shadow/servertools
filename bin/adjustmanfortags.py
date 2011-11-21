@@ -1,8 +1,11 @@
 #! /usr/bin/env python
 #
-import os, sys, optparse
+import os, sys, optparse, re
 from lsstdistrib.manifest import Manifest
 from lsstdistrib.tags import TagDef
+
+extRe = re.compile(r"([\+\-])(\d+)$")
+textRe = re.compile(r"([\+\-])(\d+)")
 
 def options():
     usage="%prog [ -t TAG ] -d DIR manifest [ tagfile ]"
@@ -12,6 +15,9 @@ def options():
     parser.add_option("-t", "--tag", dest="tag", action="store",
                       default="current",
                       help="the tag whose definitions we should adjust to")
+    parser.add_option("-b", "--build-number", dest='bnum', action="store",
+                      metavar="NUM",
+                     help="update build number for the primary product to NUM")
 
     return parser.parse_args()
 
@@ -46,13 +52,23 @@ def main():
         if dep.data[dep.NAME] not in depnames:
             if dep.data[dep.NAME] == prodname:
                 # dep.data[dep.FLAVOR] = "generic"
+
+                if opts.bnum:
+                    if extRe.search(dep.data[dep.VERSION]):
+                      dep.data[dep.VERSION] = extRe.sub(r"\g<1>%s" % opts.bnum,
+                                                        dep.data[dep.VERSION])
+                      dep.data[dep.INSTALLDIR] = extRe.sub(r"\g<1>%s" % opts.bnum,
+                                                     dep.data[dep.INSTALLDIR])
+                    else:
+                        dep.data[dep.VERSION]    += "+%s" % opts.bnum
+                        dep.data[dep.INSTALLDIR] += "+%s" % opts.bnum
+                        
                 adjusted.insert(0, dep)
             else:
                 depver = tagged.getVersion(dep.data[dep.NAME])
                 if depver:
                     mfile = os.path.join(mdir, "%s-%s.manifest" %
-                                         (dep.data[dep.NAME],
-                                          dep.data[dep.VERSION]))
+                                         (dep.data[dep.NAME], depver))
                 if not depver or not os.path.exists(mfile):
                     adjusted.insert(0, dep)
                 else:
@@ -73,6 +89,8 @@ def main():
                 raise RuntimeError("corrupted dep list: missing entry for product " + dep.data[dep.NAME])
             adjusted.insert(0, adjusted.pop(p[0]))
 
+    if opts.bnum:
+        version = textRe.sub(r"\g<1>%s" % opts.bnum, version)
     outman = Manifest(prodname, version)
     for dep in adjusted:
         outman.addRecord(*dep.data)

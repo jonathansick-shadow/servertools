@@ -18,7 +18,12 @@ function reposExtract {
         prodname=$1
     fi
 
-    echo svn export $LSST_DMS/$prodname/tags/$2 $3
-    { svn export $LSST_DMS/$prodname/tags/$2 $3 || return $?; } | \
-        grep -v $3
+    echo git archive --format=tar --prefix=$prodname-$version/    \
+                     --remote=$LSST_DMS/$prodname.git $version \| \
+             gzip -c \>  $prodname-$version.tar.gz
+    { git archive --format=tar --prefix=$prodname-$version/   \
+                  --remote=$LSST_DMS/$prodname.git $version || return $?; } | \
+        gzip -c >  $prodname-$version.tar.gz
+
+    tar xzf $prodname-$version.tar.gz
 }

@@ -25,7 +25,7 @@ copyPackageLib="$libdir/sshCopyPackage.sh"
 . $copyPackageLib
 
 function usage {
-    echo Usage: `basename $0` "[-b DIR -r DIR -h]" product version command
+    echo Usage: `basename $0` "[-b DIR -r DIR -j NUM -hpi]" product version command
 }
 
 function help {
@@ -34,7 +34,9 @@ function help {
     echo "  -b DIR      the base directory for the release-related directories"
     echo "  -r DIR      the reference stack directory"
     echo "  -j NUM      use NUM threads when building"
+    echo "  -t TAG      when deploying, tag the release with the given tag name"
     echo "  -p          purge previous attempts to validate before executing command"
+    echo "  -i          ignore failed tests: don't let failed tests halt validation"
     echo "  -h          print this help and exit"
     commands
 }
@@ -55,18 +57,26 @@ function commands {
 }
 
 prepurge=
-usebuildthreads=
+ignorefailedtests=
+usebuildthreads=4
+testsHaveFailed=
+eupstag=
 
-while getopts "j:b:r:ph" opt; do
+while getopts "j:b:r:t:pih" opt; do
   case $opt in 
     b)
       stackbase=$OPTARG ;;
     r)
-      refstack=$OPTARG ;;
+      refstack=$OPTARG
+      { echo $refstack | grep -qsE '^/'; } || refstack=$PWD/$refstack ;;
     j)
       usebuildthreads=$OPTARG ;;
     p) 
       prepurge=1 ;;
+    i)
+      ignorefailedtests=1 ;;
+    t)
+      eupstag=$OPTARG ;;
     h)
       help
       exit 0 ;;
@@ -90,6 +100,7 @@ shift $(($OPTIND - 1))
     commands
     exit 1
 }
+{ echo $stackbase | grep -qsE '^/'; } || stackbase=$PWD/$stackbase
 
 [ -z "$refstack" ]    && refstack=$stackbase/ref
 [ -z "$teststack" ]   && teststack=$stackbase/test
@@ -139,9 +150,9 @@ function productDir {
 }
 function manifestForVersion {
     local version=$1
-    [ -z "$version" ] && version=rc
+    [ -z "$version" ] && version=b
     local pre=$2
-    [ -z "$pre" ] && pre=rc
+    [ -z "$pre" ] && pre=b
     local ext=`echo $version | sed -e 's/^.*\([+-]\)/\1/'`
     local bn=`echo $ext | sed -e 's/^.//'`
     echo "$pre$bn.manifest"
@@ -161,9 +172,14 @@ function extractProductSource {
 }
 
 function buildProduct {
+    # make sure that our stack had current tags up to date
+    ensureCurrent.py
+
     cd $pdir
     EUPS_PATH=${teststack}:$refstack
-    setup -r .
+
+    # get the dependency products tagged current whenever possible
+    setup --tag=current -r .
 
     threadarg=
     [ -n "$1" ] && threadarg="-j $1"
@@ -198,6 +214,7 @@ function checkTests {
 
 function installProduct {
     EUPS_PATH=${teststack}:$refstack
+    flavor=`eups flavor`
     cd $pdir
     setup -r .
     echo scons opt=3 version=$version install declare
@@ -211,11 +228,9 @@ function installProduct {
 function eupscreate {
     EUPS_PATH=${teststack}:$refstack
     echo eups distrib create -j -f generic -d lsstbuild -s $serverstage \
-                 -S srctardir=$builddir -S manifestPrefix=rc            \
-                 $prodname $version
-    eups distrib create -j -f generic --d lsstbuild -s $serverstage     \
-                 -S srctardir=$builddir -S manifestPrefix=rc            \
-                 $prodname $version                                  || \
+                 -S srctardir=$builddir $prodname $version
+    eups distrib create -j -f generic -d lsstbuild -s $serverstage      \
+                 -S srctardir=$builddir $prodname $version           || \
     {
         echo "${prog}: Problem packaging product via eups distrib create"
         return 7
@@ -241,17 +256,28 @@ function deployPackage {
         echo "${prog}: Missing manifest file: $manfile"
         return 8
     }
-    copyPackage $prodname/$taggedas || return 8
+
+    copyPackage $prodname/$taggedas $eupstag || return 8
 }
 
 function eupsinstall {
     EUPS_PATH=$LSST_HOME
-    eups distrib install $product $version || return 9
-    [ -d "$LSST_PKGS/$product/$version" ] || {
+    local oldSCONSFLAGS=$SCONSFLAGS
+    [ -n "$usebuildthreads" ] && {
+        export SCONSFLAGS="-j $usebuildthreads"
+        [ -n "$oldSCONSFLAGS" ] && SCONSFLAGS="$SCONSFLAGS $oldSCONSFLAGS"
+    }
+    eups distrib install $prodname $version || {
+        echo "${prog}: Failed to install product"
+        SCONSFLAGS=$oldSCONSFLAGS
+        return 9
+    }
+    SCONSFLAGS=$oldSCONSFLAGS
+    [ -d "$LSST_PKGS/$prodname/$version" ] || {
         echo "${prog}: Failed to install product; install directory not found"
         return 9
     }
-    { eups list $product $version | grep -sq $version; } || {
+    { eups list $prodname $version | grep -sq $version; } || {
         echo "${prog}: Failed to declare product"
         return 9
     }
@@ -268,6 +294,7 @@ function cleanInstall {
     fi
 
     EUPS_PATH=${stack}
+    flavor=`eups flavor`
     eups distrib clean $prodname $version
     if { eups list $prodname $version 2> /dev/null | grep -sq $version; }; then
         eups remove --force $prodname $version
@@ -276,12 +303,12 @@ function cleanInstall {
         echo "${prog}: Failed to remove product from test stack"
         return 10
     fi
-    if [ -d "$teststack/$prodname/$version" ]; then
-        rm -rf $teststack/$prodname/$version
+    if [ -d "$teststack/$flavor/$prodname/$version" ]; then
+        rm -rf $teststack/$flavor/$prodname/$version
     fi
-    if [ -d "$teststack/$prodname" ]; then
-        local tmp=`ls $teststack/$prodname | wc -l`
-        [ $tmp = "0" ] && rmdir $teststack/$prodname
+    if [ -d "$teststack/$flavor/$prodname" ]; then
+        local tmp=`ls $teststack/$flavor/$prodname | wc -l`
+        [ $tmp = "0" ] && rmdir $teststack/$flavor/$prodname
     fi 
 }
 
@@ -339,7 +366,12 @@ function do_test {
     if [ "$?" != "0" ]; then
         echo "Failed tests detected; will try rebuilding"
         buildProduct 
-        checkTests || return $?
+        checkTests || {
+            local status=$?
+            testsHaveFailed=1
+            [ -z "$ignorefailedtests" ] && return $status
+            echo "WARNING: Going on despite failed tests!"
+        }
     fi
 }
 
@@ -365,16 +397,22 @@ function do_package {
 
 function do_deploy {
     do_package || return $?
+    echo "Deploying package to test server"
     deployPackage || return $?
 }
 
 function do_download {
+    { EUPS_PATH=$refstack eups list $prodname $version 2> /dev/null | grep -sq $version; } && {
+        echo "${prog}: $prodname $version is already installed into the reference stack."
+        echo "    To override either remove the product or use the -p option"
+        return 1
+    }
     echo "Checking availability on test server"
-    { eups distrib list $prodname $version 2>&1 | grep -sq $version; } || {
+    { eups distrib list $prodname $version 2> /dev/null | grep -sq $version; } || {
         do_deploy || return $?
     }
     echo "Installing product from test server"
-    eupsinstall
+    eupsinstall || return $?
 }
 
 function do_clean {
@@ -395,6 +433,15 @@ function do_purge {
     cleanInstall $refstack || return $?
 }
 
+function do_complete {
+    do_download || return $?
+    do_clean
+    [ -n "$testsHaveFailed" ] && {
+        echo "WARNING: Some TESTS HAVE FAILED"
+    }
+    echo "Product passes validation; it is ready for release."
+}
+
 [ -n "$prepurge" ] && {
     do_purge || exit $?
 }
@@ -412,6 +459,8 @@ case $command in
       do_deploy || exit $? ;;
     download)
       do_download || exit $? ;;
+    complete)
+      do_complete || exit $? ;;
     clean)
       do_clean || exit $? ;;
     purge)
