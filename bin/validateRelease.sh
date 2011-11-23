@@ -9,20 +9,8 @@ prog=`basename $0`
     exit 1
 }
 libdir="$DEVENV_SERVERTOOLS_DIR/lib"
-reposExtractLib="$libdir/svnReposExtract.sh"
-copyPackageLib="$libdir/sshCopyPackage.sh"
-[ -e "$DEVENV_SERVERTOOLS_DIR/conf/validateRelease_conf.sh" ] && \
-    . $DEVENV_SERVERTOOLS_DIR/conf/validateRelease_conf.sh
-[ -e "$reposExtractLib" ] || {
-    echo "${prog}:  reposExtract plugin does not exist: $reposExtractLib"
-    exit 1
-}
-[ -e "$copyPackageLib" ] || {
-    echo "${prog}:  copyPackage plugin does not exist: $copyPackageLib"
-    exit 1
-}
-. $reposExtractLib
-. $copyPackageLib
+reposExtractLib="$libdir/gitReposExtract.sh"  # default; override in conf
+copyPackageLib="$libdir/rsyncCopyPackage.sh"  # default; override in conf
 
 function usage {
     echo Usage: `basename $0` "[-b DIR -r DIR -j NUM -hpi]" product version command
@@ -56,14 +44,22 @@ function commands {
     echo "                 This forces validation to start from beginnning."
 }
 
+configfile=$DEVENV_SERVERTOOLS_DIR/conf/validateRelease_conf.sh
 prepurge=
 ignorefailedtests=
 usebuildthreads=4
 testsHaveFailed=
 eupstag=
 
-while getopts "j:b:r:t:pih" opt; do
+while getopts "c:j:b:r:t:pih" opt; do
   case $opt in 
+    c)
+      configfile=$OPTARG 
+      [ -f "$configfile" ] || {
+          echo "${prog}: config file not found:" $configfile
+          exit 1
+      }
+      ;;
     b)
       stackbase=$OPTARG ;;
     r)
@@ -100,6 +96,18 @@ shift $(($OPTIND - 1))
     commands
     exit 1
 }
+
+[ -e "$conffile" ] && \
+    . $configfile
+[ -e "$reposExtractLib" ] || {
+    echo "${prog}:  reposExtract plugin does not exist: $reposExtractLib"
+    exit 1
+}
+[ -e "$copyPackageLib" ] || {
+    echo "${prog}:  copyPackage plugin does not exist: $copyPackageLib"
+    exit 1
+}
+
 { echo $stackbase | grep -qsE '^/'; } || stackbase=$PWD/$stackbase
 
 [ -z "$refstack" ]    && refstack=$stackbase/ref
@@ -122,6 +130,10 @@ shift $(($OPTIND - 1))
     echo "Build directory not found: $builddir"
     exit 2
 }
+
+# load the plugins
+. $reposExtractLib
+. $copyPackageLib
 
 function clearlsst {
     [ -n "$SETUP_EUPS" ] && {
@@ -217,12 +229,14 @@ function installProduct {
     flavor=`eups flavor`
     cd $pdir
     setup -r .
-    echo scons opt=3 version=$version install declare
-    { scons opt=3 version=$version install declare && \
+    echo scons opt=3 version=$version install
+    { scons opt=3 version=$version install && \
       [ -d "$teststack/$flavor/$prodname/$version" ]; } || {
         echo "${prog}: Product failed to install into test stack"
         return 6
     }
+    echo scons -j 1 opt=3 version=$version declare
+    scons -j 1 opt=3 version=$version declare
 }
 
 function eupscreate {
@@ -267,7 +281,11 @@ function eupsinstall {
         export SCONSFLAGS="-j $usebuildthreads"
         [ -n "$oldSCONSFLAGS" ] && SCONSFLAGS="$SCONSFLAGS $oldSCONSFLAGS"
     }
-    eups distrib install $prodname $version || {
+    tagopt=
+    [ -n "$eupstag" ] && tagopt="--tag=$eupstag"
+
+    echo eups distrib install $tagopt $prodname $version 
+    eups distrib install $tagopt $prodname $version || {
         echo "${prog}: Failed to install product"
         SCONSFLAGS=$oldSCONSFLAGS
         return 9

@@ -40,8 +40,8 @@ class UpdateDependents(object):
 
     In detail, one can
 
-    1) Modify the list of dependent products to create udated manifests for.
-       To do this, one would,
+    1) Modify the list of dependent products to create updated manifests for
+       them.  To do this, one would,
        a) call getDependents() to return the auto-generated list of dependents
             of the target products.  This list is returned as a dictionary 
             mapping product names to the latest, previously-released versions.  

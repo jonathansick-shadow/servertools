@@ -1,5 +1,5 @@
 """
-a module for manipulating manifest files without use of EUPS and a installed
+a module for manipulating manifest files without use of EUPS and an installed
 software stack.  The main functionality is provided via the Manifest class.
 """
 from __future__ import absolute_import
@@ -365,6 +365,22 @@ class Dependency(object):
             return False
         return True
 
+def manifestFilename(prodname, version, flavor=None):
+    """
+    return the name of the manifest file for the given product within
+    manifests directory.
+    @param prodname    the name of the product
+    @param version     the version of the product (including any 
+                         build number qualifier)
+    @param flavor      the name of the flavor for the flavor-specific 
+                         version of the product.  If None, defaults 
+                         to "generic".
+    """
+    out = "%s-%s%s" % (prodname, version, extension)
+    if flavor:
+        out = os.path.join(flavor, out)
+    return out
+
 class DeployedManifests(object):
     """
     the set of deployed manifests represented by the manifests directory
@@ -410,7 +426,7 @@ class DeployedManifests(object):
                      cwd=self.dir)
         (cmdout, cmderr) = srch.communicate()
         matchedFiles = cmdout.strip().split("\n")
-        if srch.returncode:
+        if srch.returncode > 1:
             msg = "Problem scanning manifest files:\n" + cmderr
             raise RuntimeError(msg)
 
@@ -435,7 +451,7 @@ class DeployedManifests(object):
         deployed as determined by manifests files in the manifests 
         directory
         """
-        return map(lambda m: self.productFromFilename(m),
+        return map(lambda m: self.productFromFilename(os.path.join(self.dir,m)),
                   filter(lambda f: f.endswith(self.extension), 
                          os.listdir(self.dir)))
 
@@ -524,10 +540,7 @@ class DeployedManifests(object):
                              version of the product.  If None, defaults 
                              to "generic".
         """
-        out = "%s-%s%s" % (prodname, version, self.extension)
-        if flavor:
-            out = os.path.join(flavor, out)
-        return out
+        return manifestFilename(prodname, version, flavor)
 
     def productFromFilename(self, fname):
         """
@@ -581,3 +594,94 @@ class DeployedProductNotFound(Exception):
         self.name = prodname
         self.verison = version
         self.flavor = flavor
+
+class BuildDependencies(object):
+    """
+    a class for creating a properly ordered Manifest file.  It maintains a
+    list products (represented as Dependency instances).  One adds 
+    products to build up the dependency list.  With each product added, the
+    dependencies for the product (based on its Manifest) are merged in an
+    acceptable dependency order.  This class assumes that all manifests
+    given or otherwise internally opened and read are already in proper
+    dependency order.  
+    """
+
+    def __init__(self, serverDir):
+        """
+        initialize an empty list of products
+        @param serverDir   the path to the base of the distribution server.
+                              This directory contains the manifest directory.
+        """
+        self.sDir = serverDir
+        self.mDir = os.path.join(self.sDir, "manifests")
+        self.deps = []
+        self._mem = set()
+        self._deployed = DeployedManifests(os.path.join(self.mDir))
+
+    def mergeFromManifest(self, manifest):
+        """
+        merge in the products given in the manifest.  
+        """
+        deps = manifest.getDeps()
+        for dep in deps:
+            self._insertDep(dep)
+
+    def mergeFromManifestFile(self, manfile):
+        """
+        merge in the products given in the manifest.  
+        """
+        self.mergeFromManifest(Manifest.fromFile(manfile))
+
+    def manifestFile(self, prodname, version=None, flavor=None):
+        return os.path.join(self.mDir,
+                            manifestFilename(prodname, version, flavor))
+
+    def mergeProduct(self, prodname, version=None, flavor=None):
+        """
+        given a product, look up its dependencies and merge them into
+        this list.
+        @param   
+        """
+        if version and \
+           not os.path.exists(self.manifestFile(prodname, version, flavor)):
+            version = None
+        if not version:
+            version = self._deployed.getLatestVersion(prodname)
+        self.mergeFromManifestFile(self.manifestFile(prodname, version, flavor))
+
+    def _insertDep(self, dep):
+        if not self.hasProduct(dep.data[dep.NAME]):
+            self.deps.append(dep)
+            self._mem.add(dep.data[dep.NAME])
+
+    def hasProduct(self, prodname):
+        """
+        return True if this product is currently represented in the list
+        """
+        return prodname in self._mem
+
+    def getDeps(self):
+        """
+        return the list of ordered dependencies
+        """
+        return self.deps[:]
+
+    def __len__(self):
+        return len(self.deps)
+
+    def toManifest(self, prodname, version):
+        """
+        turn list into a manifest for a specified product.
+        @param prodname   the name of the product that the output will be
+                            a manifest for
+        @param version    the version of the product to be described with this
+                            manifest.  
+        """
+        out = Manifest(prodname, version)
+        for dep in self.deps:
+            out.addRecord(*dep.data)
+        return out
+
+
+    
+    

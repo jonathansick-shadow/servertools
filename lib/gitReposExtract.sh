@@ -1,6 +1,6 @@
 #! /bin/bash
 #
-# use SVN to extract a product
+# use Git to extract a product
 # @param prodname   name of product to extract
 # @param version    version of the product as tagged in SVN
 # @param dirname    the name of the directory to call the export.
@@ -18,12 +18,12 @@ function reposExtract {
         prodname=$1
     fi
 
-    echo git archive --format=tar --prefix=$prodname-$version/    \
-                     --remote=$LSST_DMS/$prodname.git $version \| \
-             gzip -c \>  $prodname-$version.tar.gz
-    { git archive --format=tar --prefix=$prodname-$version/   \
-                  --remote=$LSST_DMS/$prodname.git $version || return $?; } | \
-        gzip -c >  $prodname-$version.tar.gz
+    echo git archive --format=tar --prefix=$1-$taggedas/    \
+                     --remote=$LSST_DMS/$prodname.git $taggedas \| \
+             gzip -c \>  $1-$taggedas.tar.gz
+    { git archive --format=tar --prefix=$1-$taggedas/   \
+                --remote=$LSST_DMS/$prodname.git $taggedas || return $?; } | \
+        gzip -c >  $1-$taggedas.tar.gz
 
-    tar xzf $prodname-$version.tar.gz
+    tar xzf $1-$taggedas.tar.gz
 }

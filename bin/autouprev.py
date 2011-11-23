@@ -10,7 +10,7 @@ prog = os.path.basename(sys.argv[0])
 if prog.endswith(".py"):
     prog = prog[:-3]
 
-usage = "%(prog)s [ -h ] [ -vs ] -d DIR product ..."
+usage = "%prog [ -h ] [ -vs ] -d DIR product ..."
 description = \
 """Create new manifest files for all dependents of the given products, up-reving them
 to use this products.  Normally, the products that are specified have been recently
@@ -62,11 +62,21 @@ def main():
             print >> ostrm, filepath
             if opts.outfile and opts.verbose:
                 print filepath
+    if opts.outfile:
+        ostrm.close()
+
+    if opts.release and not opts.noaction:
+        print "Releasing all updated manifests."
+        for prod in updated:
+            deployedpath = os.path.join(opts.serverdir,'manifests',
+                            "%s-%s+%s.manifest" % (prod[0], prod[1], prod[2]))
+            # print "cp", prod[3], deployedpath
+            shutil.copyfile(prod[3], deployedpath)
 
 def parseProduct(prodpath):
     fields = prodpath.split('/')
     if len(fields) < 2:
-        raise Runtime("bad product name syntax: " + prodpath)
+        raise RuntimeError("bad product name syntax: " + prodpath)
     out = fields[-2:]
     isext = len(fields) > 2 and fields[-3] == 'external'
     out.append(isext)
@@ -99,6 +109,9 @@ def setopts():
     parser.add_option("-o", "--output-file", action="store", dest="outfile",
                       metavar="FILE", 
                       help="a file to write the list of updated manifest files")
+    parser.add_option("-r", "--release", action="store_true", default=False,
+                      dest="release",
+                      help="actually deploy manifests into manifest directory, making the new builds available to clients")
     parser.add_option("-n", "--noaction", action="store_true", default=False,
                       dest="noaction", 
                       help="do not actually write any files; just print the names that would be written")

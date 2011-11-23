@@ -23,17 +23,22 @@ function help {
     echo "  -h          print this help and exit"
 }
 valRelOpts=""
+stackbase=
+douprev=1
 
-while getopts "j:b:r:t:h" opt; do
+while getopts "j:b:r:t:Uh" opt; do
   case $opt in 
     b)
-      valRelOpts="$valRelOpts -b $OPTARG" ;;
+      stackbase="$OPTARG"
+      valRelOpts="$valRelOpts -b $stackbase" ;;
     r)
       valRelOpts="$valRelOpts -r $OPTARG" ;;
     j)
       valRelOpts="$valRelOpts -j $OPTARG" ;;
     t)
       valRelOpts="$valRelOpts -t $OPTARG" ;;
+    U)
+      douprev= ;;
     h)
       help
       exit 0 ;;
@@ -49,13 +54,29 @@ shift $(($OPTIND - 1))
 
 while [ $# -gt 0 ]; do
 
-    prodver=`echo $1 | sed -e 's/\// /g'`
-    buildlog=`echo $1 | sed -e 's/\//-/g'`.log
-    echo validateRelease.sh -p $valRelOpts $prodver complete
-    validateRelease.sh -p $valRelOpts $prodver complete > $buildlog 2>&1 || {
-        echo "Problem validating $prodver"
-        exit $?
+    prodversargs=`echo $1 | sed -e 's/\// /g'`
+    prodver=`echo $1 | sed -e 's/\//-/g'`
+    buildlog=${prodver}.log
+    echo validateRelease.sh -p $valRelOpts $prodversargs complete
+    validateRelease.sh -p $valRelOpts $prodversargs complete > $buildlog 2>&1\
+    || {
+        ok=$?
+        echo "Problem validating $prodversargs"
+        exit $ok
     }
+
+    # uprev its dependents
+    uprevlist=$stackbase/build/${prodver}-uprev.lis
+    echo autouprev.py -d $stackbase/www -o $uprevlist $1
+    autouprev.py -d $stackbase/www -o $uprevlist $1 || {
+        ok=$?
+        echo "Problem processing dependents via autouprev"
+        exit $ok
+    }
+
+    # release those dependents to the test server
+    
+
     shift
 
 done
