@@ -55,11 +55,11 @@ def setopts():
     parser.add_option("-a", "--atomic", action="store_true", dest="atomic", 
                       default=False,
                       help="roll back any successfully copied manifests upon" + 
-                      " eror")
+                      " error")
     parser.add_option("-o", "--overwrite", action="store_true", dest="overwrite",
                       default=False,
-                      help="roll back any successfully copied manifests upon" + 
-                      " eror")
+                      help="fail if this release would overwrite a previous" + 
+                      " one")
 
     return parser
 

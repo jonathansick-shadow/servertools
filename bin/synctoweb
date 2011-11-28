@@ -1,0 +1,35 @@
+#! /bin/bash
+#
+stackbase=/lsst/DC3/distrib/w12
+prog=`basename $0`
+
+[ -n "$DEVENV_SERVERTOOLS_DIR" ] || {
+    echo "${prog}: devenv_servertools not setup"
+    exit 1
+}
+libdir="$DEVENV_SERVERTOOLS_DIR/lib"
+. $DEVENV_SERVERTOOLS_DIR/lib/rsyncToWebServer.sh
+
+function usage {
+    echo Usage: `basename $0` "[-b DIR -h]"
+}
+
+function help {
+    usage
+    echo "Options:"
+    echo "  -b DIR      the base directory for the release-related directories"
+    echo "  -h          print this help and exit"
+}
+
+while getopts "b:h" opt; do
+  case $opt in 
+    b)
+      stackbase=$OPTARG ;;
+    h)
+      help
+      exit 0 ;;
+  esac
+done
+shift $(($OPTIND - 1))
+
+rsyncToWebServer

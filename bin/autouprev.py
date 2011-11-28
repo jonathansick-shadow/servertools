@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 #
 from __future__ import with_statement
-import sys, os, re, optparse
+import sys, os, re, optparse, shutil
 
 from lsstdistrib.release import UpdateDependents
 from lsstdistrib import version as onvers
@@ -41,7 +41,24 @@ def main():
     for arg in args:
         products.append(parseProduct(arg))
 
+    if opts.uprprods:
+        tmp = []
+        for i in opts.uprprods:
+            tmp.extend(i.split(','))
+        opts.uprprods = tmp
+
     uprev = UpdateDependents(products, opts.serverdir, log=log)
+    if opts.reftag:
+        uprev.updateFromTag(opts.reftag)
+        
+    if opts.uprprods:
+        # restrict the products we up-rev
+        deps = uprev.getDependents()
+        for prodname in deps.keys():
+            if prodname not in opts.uprprods:
+                del deps[prodname]
+        uprev.setDependents(deps)
+        
     if opts.noaction:
         if not opts.silent:
             print >> log, "No new files being written;", \
@@ -54,24 +71,26 @@ def main():
     if opts.outfile:
         ostrm = open(opts.outfile, 'w')
 
-    if opts.outfile or not opts.silent:
+    if opts.outfile or opts.release or not opts.silent:
         for prod in updated:
-            filepath = prod[3]
-            if filepath.startswith(opts.serverdir + '/'):
-                filepath = filepath[len(opts.serverdir)+1:]
-            print >> ostrm, filepath
+            if opts.release:
+                writtenfile = "%s-%s+%s.manifest" % (prod[0],prod[1],prod[2])
+                prodpath = os.path.join(opts.serverdir,'manifests',writtenfile)
+                            
+                if not opts.noaction:
+                    # print "cp", prod[3], deployedpath
+                    shutil.copyfile(prod[3], prodpath)
+            else:
+                writtenfile = prod[3]
+                if writtenfile.startswith(opts.serverdir + '/'):
+                    writtenfile = writtenfile[len(opts.serverdir)+1:]
+
+            print >> ostrm, writtenfile
             if opts.outfile and opts.verbose:
-                print filepath
+                print writtenfile
+
     if opts.outfile:
         ostrm.close()
-
-    if opts.release and not opts.noaction:
-        print "Releasing all updated manifests."
-        for prod in updated:
-            deployedpath = os.path.join(opts.serverdir,'manifests',
-                            "%s-%s+%s.manifest" % (prod[0], prod[1], prod[2]))
-            # print "cp", prod[3], deployedpath
-            shutil.copyfile(prod[3], deployedpath)
 
 def parseProduct(prodpath):
     fields = prodpath.split('/')
@@ -109,6 +128,12 @@ def setopts():
     parser.add_option("-o", "--output-file", action="store", dest="outfile",
                       metavar="FILE", 
                       help="a file to write the list of updated manifest files")
+    parser.add_option("-u", "--update-products", action="append", 
+                      metavar="NAME[,NAME...]", dest="uprprods",
+                      help="a comma-separated list of product names to restrict the up-revs to")
+    parser.add_option("-T", "--reference-tag", action="store", dest="reftag",
+                      metavar="TAG", default="current",
+          help="use the given tag as a guide for choosing dependency versions")
     parser.add_option("-r", "--release", action="store_true", default=False,
                       dest="release",
                       help="actually deploy manifests into manifest directory, making the new builds available to clients")

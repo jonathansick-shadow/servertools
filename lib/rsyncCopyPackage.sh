@@ -34,10 +34,10 @@ function copyPackage {
     return 0
 }
 
-packageServerName=dev.lsstcorp.org
-testPackageServerPath=pkgs/test/w12
-testPackageServerDir=softstack/$testPackageServerPath
+rsyncLibrary=$DEVENV_SERVERTOOLS_DIR/lib/rsyncToWebServer.sh
+rsyncCopyCmd=rsyncToWebServer
+. $rsyncLibrary
+
 testPackageServerURL=http://$packageServerName/$testPackageServerPath
-localServerMirror=$stackbase/www
 tagReleaseCmd=tagRelease.py
 canonicalTag=current

@@ -2,6 +2,9 @@
 #
 SHELL=/bin/bash
 prog=`basename $0`
+packageServerName=dev.lsstcorp.org
+testPackageServerPath=pkgs/test/w12
+testPackageServerDir=softstack/$testPackageServerPath
 
 [ -n "$DEVENV_SERVERTOOLS_DIR" ] || {
     echo "${prog}: devenv_servertools not setup"
@@ -10,7 +13,8 @@ prog=`basename $0`
 libdir="$DEVENV_SERVERTOOLS_DIR/lib"
 
 function usage {
-    echo Usage: "$prog [-b DIR -r DIR -j NUM -hpi] product/version [ product/version ... ]"
+    echo  Usage: "$prog [-b DIR -r DIR -j NUM -l DIR -t TAG -T TAG -hf]"
+    echo "              product/version [ product/version ... ]"
 }
 
 function help {
@@ -20,13 +24,19 @@ function help {
     echo "  -r DIR      the reference stack directory"
     echo "  -j NUM      use NUM threads when building"
     echo "  -t TAG      when deploying, tag the release with the given tag name"
+    echo "  -T TAG      when auto-upreving, use versions tagged as TAG"
+    echo "  -l DIR      write build logs to specified directory"
+    echo "  -f          do a full up-rev of all dependents; otherwise, up-rev only those"
+    echo "                 products that needed to build the requested ones."
     echo "  -h          print this help and exit"
 }
 valRelOpts=""
 stackbase=
-douprev=1
+fulluprev=
+logdir=
+reftag=
 
-while getopts "j:b:r:t:Uh" opt; do
+while getopts "j:b:r:t:T:Uh" opt; do
   case $opt in 
     b)
       stackbase="$OPTARG"
@@ -36,9 +46,14 @@ while getopts "j:b:r:t:Uh" opt; do
     j)
       valRelOpts="$valRelOpts -j $OPTARG" ;;
     t)
+      eupstag="$OPTARG"
       valRelOpts="$valRelOpts -t $OPTARG" ;;
+    t)
+      reftag="-T $OPTARG" ;;
+    l) 
+      logdir="$OPTARG" ;;
     U)
-      douprev= ;;
+      fulluprev=1 ;;
     h)
       help
       exit 0 ;;
@@ -46,41 +61,117 @@ while getopts "j:b:r:t:Uh" opt; do
 done
 shift $(($OPTIND - 1))
 
+[ -z "$stackbase" ] && {
+    echo "${prog}: base directory not specified."
+    exit 1
+}
+[ -d "$stackbase" ] || {
+    echo "${prog}: base directory does not exist: $stackbase."
+    exit 1
+}
+serverdir="$stackbase/www"
+[ -d "$serverdir" ] || {
+    echo "${prog}: server directory does not exist: $serverdir."
+    exit 1
+}
+builddir="$stackbase/build"
+[ -z "$logdir" ] && logdir="$builddir"
+[ -d "$logdir" ] || {
+    echo "${prog}: log directory does not exist: $logdir."
+    exit 1
+}
+
 [ $# -lt 1 ] && {
     echo "${prog}: Missing arguments: product/version"
     usage
     exit 1
 }
+set -x
 
-while [ $# -gt 0 ]; do
+cd $builddir
+relprods=("$@")
+uprevprods=(`orderuprev.py -d $serverdir -p ${relprods[@]}`)
+fulllog="$logdir/releaseProducts-$$.log"
 
-    prodversargs=`echo $1 | sed -e 's/\// /g'`
-    prodver=`echo $1 | sed -e 's/\//-/g'`
-    buildlog=${prodver}.log
-    echo validateRelease.sh -p $valRelOpts $prodversargs complete
-    validateRelease.sh -p $valRelOpts $prodversargs complete > $buildlog 2>&1\
-    || {
+echo "Releasing:"
+for prod in "${uprevprods[@]}"; do
+    echo -n "  " && echo $prod | sed -e 's/\// /g'
+done
+
+autouprevprods=()
+lastuprev=
+
+for prod in "${uprevprods[@]}"; do
+
+    prodver=(`echo $prod | sed -e 's/\// /g'`)
+    prodname=${prodver[0]}
+    version=${prodver[1]}
+    proddashver=`echo $prod | sed -e 's/\//-/g'`
+    log="$logdir/$proddashver-$$.log"
+
+    if { echo ${relprods[@]} | grep -qs "$prodname"; }; then
+        # one of the requested release products
+        # first auto-up-rev as needed:
+        [ "${#autouprevprods[@]}" -gt 0 -a -n "$lastuprev" ] && {
+            names=`echo ${autouprevprods[@]} | sed -e 's/ /,/g' -e 's/\/.*,/,/g' -e 's/\/.*$//'`
+            prodlist="$builddir/$proddashver-uprev.$$"
+            # create the uprev manifests
+            echo autouprev.py -d $serverdir $reftag -u $names -o $prodlist -r $lastuprev | tee -a $fulllog
+            autouprev.py -d $serverdir $reftag -u $names -o $prodlist -r $lastuprev >> $fulllog 2>&1 || exit $?
+
+            autouprevprods=(`cat $prodlist | sed -e 's/\.manifest$//' -e 's/\-/\//'`)
+            rm $prodlist
+
+            [ -n "$eupstag" ] && {
+                # tag the products
+                for urprod in "${autouprevprods[@]}"; do
+                    urprod=`echo $urprod | sed -e 's/\// /'`
+                    echo tagRelease.py -d $serverdir $urprod $eupstag | tee -a $fulllog
+                    tagRelease.py -d $serverdir $urprod $eupstag >> $fulllog 2>&1 || exit $?
+                done
+            }
+
+            # sync it
+            echo rsync -avz --exclude=.git\* --exclude=\*~ $serverdir/ ${packageServerName}:$testPackageServerDir
+            rsync -avz --exclude=.git\* --exclude=\*~ $serverdir/ ${packageServerName}:$testPackageServerDir || exit $?
+
+            # download and install each up-reved product
+            for urprod in "${autouprevprods[@]}"; do
+                tagarg=
+                [ -n "$eupstag" ] && tagarg="--tag=$eupstag"
+                urprod=`echo $urprod | sed -e 's/\// /'`
+                echo eups distrib install $tagarg $urprod | tee -a $fulllog
+                eups distrib install $tagarg $urprod >> $fulllog 2>&1 || {
+                    echo "Failed to build $urprod against $lastuprev"
+                    exit 1
+                }
+            done
+        }
+        autouprevprods=()
+
+        # now handle the requested release products
+        echo validateRelease.sh -p $valRelOpts $prodname $version complete \
+             2>&1 | tee $log
+        validateRelease.sh -p $valRelOpts $prodname $version complete \
+            >> $log 2>&1
         ok=$?
-        echo "Problem validating $prodversargs"
-        exit $ok
-    }
+        cat $log >> $fulllog
+        [ "$ok" -gt 0 ] && {
+            echo "Problem validating $prodname $version"
+            exit $ok
+        }
+        lastuprev="$prodname/$version"
+        rm $log
+    else
 
-    # uprev its dependents
-    uprevlist=$stackbase/build/${prodver}-uprev.lis
-    echo autouprev.py -d $stackbase/www -o $uprevlist $1
-    autouprev.py -d $stackbase/www -o $uprevlist $1 || {
-        ok=$?
-        echo "Problem processing dependents via autouprev"
-        exit $ok
-    }
-
-    # release those dependents to the test server
-    
-
-    shift
+        # one of dependents needed to build next requested product
+        autouprevprods=(${autouprevprods[@]} $prod)
+        
+    fi
 
 done
 
+# rm $fulllog
 echo Done.
 
 

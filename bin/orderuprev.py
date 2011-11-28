@@ -34,6 +34,12 @@ def main():
     cl = setOptions()
     (opts, args) = cl.parse_args()
 
+    if not opts.serverdir:
+        raise RuntimeError("server root directory needed (use -d)")
+    if not os.path.exists(opts.serverdir):
+        raise RuntimeError("server root directory not found: " +
+                           opts.serverdir)
+
     bdeps = BuildDependencies(opts.serverdir)
     deployed = DeployedManifests(bdeps.mDir)
 

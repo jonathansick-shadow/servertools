@@ -70,16 +70,16 @@ class VersionCompare(object):
     def __call__(self, v1, v2):
         return self.compare(v1, v2)
 
-_buildRe = re.compile(r'([^\d\.]+)\d+$')
+buildExtRe = re.compile(r'([^\d\.]+)(\d+)$')
 
 def incrementBuild(v1, forcePlus=False):
-    mat = _buildRe.search(v1)
+    mat = buildExtRe.search(v1)
     if mat:
         q = mat.group(1)
         if forcePlus:
-            return _buildRe.sub("+1", v1)
+            return buildExtRe.sub("+1", v1)
         bnum = int(mat.group(0)[len(q):])
-        return _buildRe.sub(q+str(bnum+1), v1)
+        return buildExtRe.sub(q+str(bnum+1), v1)
     elif v1.endswith('-'):
         if forcePlus:
             return v1[:-1] + "+1"
@@ -92,11 +92,11 @@ def incrementBuild(v1, forcePlus=False):
 
 def substituteBuild(v1, bnum, forcePlus=False):
     bnum = str(bnum)
-    mat = _buildRe.search(v1)
+    mat = buildExtRe.search(v1)
     if mat:
         q = mat.group(1)
         if forcePlus: q = "+"
-        return _buildRe.sub(q+bnum, v1)
+        return buildExtRe.sub(q+bnum, v1)
     elif v1.endswith('-'):
         if forcePlus:
             return "%s+%s" % (v1[:-1], bnum)
@@ -112,11 +112,9 @@ def splitToReleaseBuild(version):
     split a version string into its base release version (i.e. as tagged in 
     SVN), a build qualifier, and a build number.  
     """
-    mat = VersionCompare.nonTagRe.search(version)
+    mat = buildExtRe.search(version)
     if mat:
-        return (version[:mat.start(0)], 
-                version[mat.start(0):mat.end(0)],
-                version[mat.end(0):]);
+        return (version[:mat.start(0)], mat.group(1), mat.group(2))
     return (version, None, None)
 
 def baseVersion(version):
@@ -124,6 +122,20 @@ def baseVersion(version):
     strip off the build qualifier from the given version string
     """
     return splitToReleaseBuild(version)[0]
+
+def buildNumber(version, default=None):
+    """
+    extract the build number given from the given version
+    @param version   the input version string, which should include a build
+                       number
+    @param default   a value to return if the input version does not include
+                       a build number
+    @return str   the build number (as a string) or the default value if a build
+                       number is not found in the input string.
+    """
+    out = splitToReleaseBuild(version)[2]
+    if out is None:  out = default
+    return out
 
 defaultVersionCompare = VersionCompare()
 

@@ -7,7 +7,78 @@ from __future__ import absolute_import
 import sys, os, re, shutil
 from .manifest import DeployedManifests, Manifest, Dependency
 from .server   import Repository
+from .tags     import TagDef
 from . import version as onvers
+
+class UprevProduct(object):
+    """
+    An operations class that will create an up-reved manifest using
+    the latest updated product dependencies.
+    """
+
+    def __init__(self, serverdir, updatedeps=None, deployedmans=None):
+        """
+        @param serverdir     the root directory of the distribution server.
+        @param deployedmans  a DeployedManifest instance to use
+        @Param updatedeps    an UpdateDependents instance to use
+        """
+        self.sdir = serverdir
+        self.server = Repository(rootdir)
+        self.uprevdeps = updatedeps
+        self.deployed = deployedmans
+        if not self.uprevdeps:
+            self.uprevdeps = BuildDependencies(self.sdir, deployedmans)
+        if not self.deployed:
+            self.deployed = self.uprevdeps._deployed
+
+    def uprev(self, prodname, version, filename=None):
+        """
+        create an up-reved manifest and return the name of the file.
+        """
+        newbn = self.recommendNextBuildNumber(prodname, version)
+        newver = onvers.substituteBuild(version, newbn)
+        
+        oldman = self.deployed.getManifest(prodname, version)
+        newman = Manifest(prodname, newver)
+        for rec in oldman:
+            if rec[0] == prodname:
+                newman.addSelf()
+            elif rec[0] == '#':
+                newman.addComment(rec[-1])
+            else:
+                if self.uprevdeps.hasProduct(rec[0]):
+                    dep = self.uprevdeps.getDepForProduct(rec[0])
+                newman.addRecord(*dep.data)
+
+        if not filename:
+            filename = "b%s.manifest" % str(build)
+        newver = onvers.baseVersion(newver)
+        pdir = self.server.getProductDir(prodname, version)
+        out = os.path.join(pdir, filename)
+        if os.path.exists(out):
+            raise RuntimeError("Manifest file already exists; " +
+                               "won't overwrite: " + out)
+
+        with open(out, 'w') as fout:
+            newman.write(fout)
+        return out
+
+    def recommendNextBuildNumber(self, prodname, version):
+        """
+        return a recommended next build number.  It will return one plus
+        the highest number found for the tagged release version both 
+        deployed (in the manifests directory) and undeployed (in the product 
+        directory) to avoid any name clashes.
+        @param prodname     the name of the product
+        @param version      the version.  If this includes a build number,
+                                it will be dropped and ignored.
+        """
+        deplbuild = self.deployed.getLatestBuildNumber(prodname, version)
+        undeplbuild = self.server.getLatestUndeployedBuildNumber(prodname, version)
+        return max(deplbuild, undeplbuild) + 1
+             
+        
+        
 
 class UpdateDependents(object):
     """
@@ -71,7 +142,7 @@ class UpdateDependents(object):
 
     3) Modify the new manifest records for some of the dependents.  To do 
        this, one would:
-       a) cal getDependencies() to get a list of products to upgraded (if
+       a) cal getDependendents() to get a list of products to upgraded (if
           needed).
        b) call setUpgradedBuildNumbers() to get the build numbers that are 
           going to be used (if needed).  
@@ -82,7 +153,7 @@ class UpdateDependents(object):
        For example, 
 
             r = UpdateDependents(prods, rootdir)
-            deps = r.getDependencies()
+            deps = r.getDependendents()
             if deps.has_key('python'):
                 bn = r.setUpgradedBuildNumbers()
                 rec = r.getUpdatedRecordFor('python', deps['python'],
@@ -121,12 +192,17 @@ class UpdateDependents(object):
         self.upgblds = None
         self.upgrecs = None
         self.vcmp = vercmp
+        self.tagged = None
         if self.vcmp == None:
             self.vcmp = onvers.defaultVersionCompare
         self.server = Repository(rootdir)
         self.deployed = DeployedManifests(self.server.getManifestDir(), 
                                           self.vcmp)
         self.log = log
+
+    def updateFromTag(self, tag):
+        tagfile = self.server.getTagListFile(tag)
+        self.tagged = TagDef(tagfile)
 
     def getDependents(self):
         """
@@ -278,30 +354,35 @@ class UpdateDependents(object):
         if not upgradedRecords:
             upgradedRecords = self.setUpgradedManifestRecords()
 
-        latest = self.deployed.getLatestVersion(prodname)
-        if not latest:
+        if self.tagged:
+            # up-rev the tagged version
+            version = self.tagged.getVersion(prodname)
+        else:
+            # up-rev the latest deployed version
+            version = self.deployed.getLatestVersion(prodname)
+        if not version:
             raise DeployedProductNotFound(prodname)
-        man = self.deployed.getManifest(prodname, latest)
+        man = self.deployed.getManifest(prodname, version)
 
+        # update the manifest
         newbuild = self.upgblds.get(prodname)
         if not newbuild:
-            newbuild = self.recommendNextBuildNumber(prodname, latest)
-        version = onvers.substituteBuild(latest, newbuild)
+            newbuild = self.recommendNextBuildNumber(prodname, version)
+        version = onvers.substituteBuild(version, newbuild)
         newman = Manifest(prodname, version)
         for rec in man:
             if rec[0] == '#':
                 newman.addComment(rec[-1])
             else:
                 rec = Dependency(rec)
-                if rec.data[rec.NAME] in upgradedRecords:
-                    newman.addRecord(*upgradedRecords[rec.data[rec.NAME]])
+                if rec.getName() in upgradedRecords:
+                    newman.addRecord(*upgradedRecords[rec.getName()])
                 else:
                     newman.addRecord(*rec.data)
 
         return newman
 
     def setUpgradedManifestRecords(self, upgrecs=None, uselatest=True):
-                                    
         """
         create an updated manifest record for each the dependents to be used 
         in their upgraded manifests, and return them in a by-product-name 

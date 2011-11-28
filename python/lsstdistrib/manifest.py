@@ -356,6 +356,9 @@ class Dependency(object):
         """
         self.data = data
 
+    def getName(self):
+        return self.data[self.NAME]
+
     def matches(self, prodname, version=None, flavor=None):
         if prodname != self.data[self.NAME]:
             return False
@@ -606,7 +609,7 @@ class BuildDependencies(object):
     dependency order.  
     """
 
-    def __init__(self, serverDir):
+    def __init__(self, serverDir, deployedman=None):
         """
         initialize an empty list of products
         @param serverDir   the path to the base of the distribution server.
@@ -615,14 +618,18 @@ class BuildDependencies(object):
         self.sDir = serverDir
         self.mDir = os.path.join(self.sDir, "manifests")
         self.deps = []
-        self._mem = set()
-        self._deployed = DeployedManifests(os.path.join(self.mDir))
+        self._mem = {}
+        self._deployed = deployedman
+        if not self._deployed:
+            self._deployed = DeployedManifests(os.path.join(self.mDir))
 
     def mergeFromManifest(self, manifest):
         """
         merge in the products given in the manifest.  
         """
-        deps = manifest.getDeps()
+        self.mergeDependencies(manifest.getDeps())
+
+    def mergeDependencies(self, deps):
         for dep in deps:
             self._insertDep(dep)
 
@@ -642,23 +649,75 @@ class BuildDependencies(object):
         this list.
         @param   
         """
-        if version and \
-           not os.path.exists(self.manifestFile(prodname, version, flavor)):
-            version = None
-        if not version:
-            version = self._deployed.getLatestVersion(prodname)
-        self.mergeFromManifestFile(self.manifestFile(prodname, version, flavor))
+        ver=version
+        if ver and \
+           not os.path.exists(self.manifestFile(prodname, ver, flavor)):
+            ver = None
+        if not ver:
+            ver = self._deployed.getLatestVersion(prodname)
+
+        manfile = self.manifestFile(prodname, ver, flavor)
+        if ver != version:
+            deps = Manifest.fromFile(manfile).getDeps()
+            mine = map(lambda d: d[0],
+                       filter(lambda d: d[1].matches(prodname),
+                              enumerate(deps)))
+            if mine:
+                dep = deps[mine[0]]
+                deps[mine[0]] = self._subVersion(dep, version)
+            self.mergeDependencies(deps)
+            
+        else:
+            self.mergeFromManifestFile(manfile)
+
+    _buildExtRe = re.compile("([\+\-])(\d+)$")
+    def _subVersion(self, deprec, version):
+        ntaggedas, next = self._splitVersion(version)
+        if not next:
+            next = "+1"
+            version = version+next
+        oversion = deprec.data[deprec.VERSION]
+        otaggedas, oext = self._splitVersion(oversion)
+        deprec.data[deprec.VERSION] = version
+
+        deprec.data[deprec.TABLEFILE] = \
+           self._subVersionStr(deprec.data[deprec.TABLEFILE], otaggedas, ntaggedas)
+        deprec.data[deprec.INSTALLDIR] = \
+           self._subVersionStr(deprec.data[deprec.INSTALLDIR], oversion, version)
+        deprec.data[deprec.INSTALLID] = \
+           self._subVersionStr(deprec.data[deprec.INSTALLID], otaggedas, ntaggedas)
+        return deprec
+
+    def _subVersionStr(self, instr, over, nver):
+        p = instr.find(over)
+        if p < 0:
+            return instr
+        return instr[:p] + nver + instr[p+len(over):]
+    
+    def _splitVersion(self, version):
+        ext = None
+        taggedas = version
+        mat = self._buildExtRe.search(version)
+        if mat:
+            ext = mat.group(0)
+            taggedas = self._buildExtRe.sub('', version)
+        return (taggedas, ext)
 
     def _insertDep(self, dep):
-        if not self.hasProduct(dep.data[dep.NAME]):
+        if not self.hasProduct(dep.getName()):
             self.deps.append(dep)
-            self._mem.add(dep.data[dep.NAME])
+            self._mem[dep.getName()] = len(self.deps)-1
 
     def hasProduct(self, prodname):
         """
         return True if this product is currently represented in the list
         """
-        return prodname in self._mem
+        return prodname in self._mem.keys()
+
+    def getDepForProduct(self, prodname):
+        if not self.hasProduct(prodname):
+            return None
+        return self.deps[self._mem[prodname]]
 
     def getDeps(self):
         """
@@ -682,6 +741,61 @@ class BuildDependencies(object):
             out.addRecord(*dep.data)
         return out
 
+class OrderProducts(object):
+    """
+    a class for sorting a list of products into dependency order.  This 
+    functionality is provided as a class to allow the details of how this
+    is done to be configured.
+    """
 
-    
-    
+    def __init__(self, serverdir, products=None):
+        """
+        initialize the class with the products to order:
+        @param serverdir   the server root directory
+        @param products    a list of products to order.  Each element should 
+                              be one of the model/types accepted addProduct.
+        """
+        self.serverdir = serverdir
+        self.prods = {}
+        for prod in products:
+            self.addProduct(prod)
+        self.tag = None
+
+    def addProduct(self, product):
+        """
+        add a product to the list to sort.  The product can be one of:
+          o  a string containing the product name
+          o  a string containing the product name and version in in
+               name/version format
+          o  a two-element tuple giving the name and version
+        """
+        if isinstance(product, str):
+            product = map(lambda p: p.strip(), product.split('/', 1))
+            if len(product) < 2: product.append(None)
+        self.prods[product[0]] =  product[1] 
+
+    def preferTag(self, tag):
+        """
+        use the version of a product that is tagged with the given tag name
+        to determine dependencies when an explicit version has not been 
+        specified (or otherwise does not exist).  By default, the latest
+        deployed version will be used.  Use None as a value to revert to the
+        default behavior.
+        """
+        self.tag = tag
+
+    def sort(self):
+        """
+        sort the products into dependency order.
+        @return a list of product-version two-tuples in order
+        """
+        bdeps = BuildDependencies(self.serverdir)
+        for prod, version in self.prods.items():
+            bdeps.mergeProduct(prod, version)
+        deps = bdeps.getDeps()
+
+        out = []
+        for dep in deps:
+            if dep.getName() in self.prods.keys():
+                out.append( (dep.getName(), self.prods[dep.getName()]) )
+        return out
