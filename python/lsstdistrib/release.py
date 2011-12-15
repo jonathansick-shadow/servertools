@@ -5,7 +5,7 @@ from __future__ import with_statement
 from __future__ import absolute_import
 
 import sys, os, re, shutil
-from .manifest import DeployedManifests, Manifest, Dependency
+from .manifest import DeployedManifests, Manifest, Dependency, DeployedProductNotFound
 from .server   import Repository
 from .tags     import TagDef
 from . import version as onvers
@@ -19,11 +19,11 @@ class UprevProduct(object):
     def __init__(self, serverdir, updatedeps=None, deployedmans=None):
         """
         @param serverdir     the root directory of the distribution server.
+        @param updatedeps    an UpdateDependents instance to use
         @param deployedmans  a DeployedManifest instance to use
-        @Param updatedeps    an UpdateDependents instance to use
         """
         self.sdir = serverdir
-        self.server = Repository(rootdir)
+        self.server = Repository(self.sdir)
         self.uprevdeps = updatedeps
         self.deployed = deployedmans
         if not self.uprevdeps:
@@ -219,7 +219,14 @@ class UpdateDependents(object):
                 # merge list of dependents into full list
                 deps = self.deployed.dependsOn(prod[0])
                 for dep in deps:
-                    if dep[0] == prod[0] and dep[1] == prod[1]:
+                    if dep[0] == prod[0]:
+                        continue
+                    try:
+                        self.server.getProductDir(dep[0], dep[1])
+                    except DeployedProductNotFound:
+                        print >> self.log, \
+                          "Note: No product directory for %s %s; skipping." % \
+                          (dep[0], dep[1])
                         continue
                     if not out.has_key(dep[0]) or \
                        self.vcmp(dep[1], out[dep[0]]) > 0:
@@ -283,9 +290,12 @@ class UpdateDependents(object):
         @param version      the version.  If this includes a build number,
                                 it will be dropped and ignored.
         """
-        deplbuild = self.deployed.getLatestBuildNumber(prodname, version)
-        undeplbuild = self.server.getLatestUndeployedBuildNumber(prodname, version)
-        return max(deplbuild, undeplbuild) + 1
+        try:
+            deplbuild = self.deployed.getLatestBuildNumber(prodname, version)
+            undeplbuild = self.server.getLatestUndeployedBuildNumber(prodname, version)
+            return max(deplbuild, undeplbuild) + 1
+        except DeployedProductNotFound, ex:
+            return 1
              
     def createManifests(self):
         """
@@ -515,7 +525,7 @@ class Release(object):
     def parseProductManifestPath(mpath):
         fields = mpath.split('/')
         if len(fields) < 3:
-            raise Runtime("bad product name syntax: " + mpath)
+            raise RuntimeError("bad product name syntax: " + mpath)
         out = fields[-3:]
 
         mat = re.match(r'^b(\d+).manifest', out[2])

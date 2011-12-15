@@ -5,8 +5,8 @@
 #
 function rsyncToStdWebServer {
 
-    echo rsync -avz --exclude=.git\* --exclude=\*~ $localServerMirror/ ${packageServerName}:$testPackageServerDir
-    rsync -avz --exclude=.git\* --exclude=\*~ $localServerMirror/ ${packageServerName}:$testPackageServerDir || return 1
+    echo rsync -avz --exclude=.git\* --exclude=/newinstall.sh --exclude=\*~ $localServerMirror/ ${packageServerName}:$testPackageServerDir
+    rsync -avz --exclude=.git\* --exclude=/newinstall.sh --exclude=\*~ $localServerMirror/ ${packageServerName}:$testPackageServerDir || return 1
 
     echo ssh $packageServerName \"cd $testPackageServerDir\; sed -e \'/EUPS distribution/ s/current/stable/\' current.list \> stable.list\"
     ssh $packageServerName "cd $testPackageServerDir; sed -e '/EUPS distribution/ s/current/stable/' current.list > stable.list" || return 2

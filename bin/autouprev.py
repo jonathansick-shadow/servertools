@@ -10,7 +10,7 @@ prog = os.path.basename(sys.argv[0])
 if prog.endswith(".py"):
     prog = prog[:-3]
 
-usage = "%prog [ -h ] [ -vs ] -d DIR product ..."
+usage = "%prog [ -h ] [-o FILE -u LIST -T TAG -rn ] [ -d DIR ] product ..."
 description = \
 """Create new manifest files for all dependents of the given products, up-reving them
 to use this products.  Normally, the products that are specified have been recently
@@ -23,8 +23,7 @@ defaultServerRoot=None
 
 def main():
     global log
-    cl = setopts()
-    (opts, args) = cl.parse_args()
+    (opts, args) = loadconfig()
 
     if not opts.serverdir:
         fail("-d option missing from arguments", 2)
@@ -41,21 +40,31 @@ def main():
     for arg in args:
         products.append(parseProduct(arg))
 
-    if opts.uprprods:
+    if opts.uprprods is None:
+        opts.uprprods = []
+    else:
         tmp = []
         for i in opts.uprprods:
             tmp.extend(i.split(','))
         opts.uprprods = tmp
+    if opts.nouprprods is None:
+        opts.nouprprods = []
+    else:
+        tmp = []
+        for i in opts.nouprprods:
+            tmp.extend(i.split(','))
+        opts.nouprprods = tmp
 
     uprev = UpdateDependents(products, opts.serverdir, log=log)
     if opts.reftag:
         uprev.updateFromTag(opts.reftag)
         
-    if opts.uprprods:
+    if opts.uprprods or opts.nouprprods:
         # restrict the products we up-rev
         deps = uprev.getDependents()
         for prodname in deps.keys():
-            if prodname not in opts.uprprods:
+            if (opts.uprprods and prodname not in opts.uprprods) or \
+               prodname in opts.nouprprods:
                 del deps[prodname]
         uprev.setDependents(deps)
         
@@ -115,6 +124,25 @@ def getNewManifestPaths(uprev):
 
     return out
 
+def loadconfig():
+    import lsstdistrib.config as config
+    import lsstdistrib.utils  as utils
+
+    try:
+        configfile = os.path.join(os.environ['DEVENV_SERVERTOOLS_DIR'], "conf",
+                                  "common_conf.py")
+        utils.loadConfigfile(configfile)
+    except Exception, ex:
+        print >> sys.stderr, "Warning: unable to load system config file:", str(ex)
+    
+    cl = setopts()
+    (opts, args) = cl.parse_args()
+
+    if not opts.serverdir and config.serverdir:
+        opts.serverdir = config.serverdir
+
+    return (opts, args)
+
 def setopts():
     parser = optparse.OptionParser(prog=prog, usage=usage, 
                                    description=description)
@@ -130,7 +158,10 @@ def setopts():
                       help="a file to write the list of updated manifest files")
     parser.add_option("-u", "--update-products", action="append", 
                       metavar="NAME[,NAME...]", dest="uprprods",
-                      help="a comma-separated list of product names to restrict the up-revs to")
+                      help="a comma-separated list of names of products to restrict the up-revs to")
+    parser.add_option("-U", "--no-update-products", action="append", 
+                      metavar="NAME[,NAME...]", dest="nouprprods",
+                      help="a comma-separated list of names of products not to up-rev")
     parser.add_option("-T", "--reference-tag", action="store", dest="reftag",
                       metavar="TAG", default="current",
           help="use the given tag as a guide for choosing dependency versions")

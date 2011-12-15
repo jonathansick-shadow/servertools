@@ -4,7 +4,7 @@ from __future__ import with_statement
 import os, sys, re, optparse, shutil
 
 prog = os.path.basename(sys.argv[0])
-defserverdir = os.path.join(os.environ['HOME'], 'softstack/pkgs/test/w12a')
+# defserverdir = os.path.join(os.environ['HOME'], 'softstack/pkgs/test/w12a')
 tag = 'current'
 tmpdir = '/tmp'
 
@@ -14,13 +14,26 @@ def options():
     usage="%prog -d DIR product version tag [ tag ... ]"
     parser = optparse.OptionParser(usage=usage)
     parser.add_option("-d", "--server-directory", dest="sdir", action="store",
-                      default=defserverdir, metavar="DIR", 
-                      help="the root directory for the server")
+                      metavar="DIR", help="the root directory for the server")
     parser.add_option("-D", "--output-directory", dest="outdir",
                       action="store",metavar="DIR", 
                       help="save output files in given directory (rather than overwrite)")
 
-    return parser.parse_args()
+    import lsstdistrib.config as config
+    import lsstdistrib.utils  as utils
+    try:
+        configfile = os.path.join(os.environ['DEVENV_SERVERTOOLS_DIR'], "conf",
+                                  "common_conf.py")
+        utils.loadConfigfile(configfile)
+    except Exception, ex:
+        print >> sys.stderr, "Warning: unable to load system config file:", str(ex)
+    
+    opts, args = parser.parse_args()
+
+    if not opts.sdir and config.serverdir:
+        opts.sdir = config.serverdir
+
+    return (opts, args)
 
 class AmongLSSTEntries(object):
     def __init__(self):        self.v =  1

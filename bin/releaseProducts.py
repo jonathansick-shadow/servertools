@@ -10,8 +10,8 @@ builddir=None
 fulllog=None
 serverdir=None
 
-from lsstdistrib.release import UpdateDependents
-from lsstdistrib.manifest import BuildDependencies, SortProducts, Manifest
+from lsstdistrib.release import UpdateDependents, UprevProduct
+from lsstdistrib.manifest import BuildDependencies, SortProducts, Manifest, DeployedManifests
 from lsstdistrib import version as onvers
 from lsstdistrib.tags import TagDef
 
@@ -48,7 +48,7 @@ def setopts():
                       metavar="TAG", default=4, type="int",
           help="use the given tag as a guide for choosing dependency versions")
     parser.add_option("-f", "--full-uprev", action="store_true", dest="fulluprev",
-                      default=False, type="bool",
+                      default=False, 
           help="up-rev all dependents of given products, not just those necessary for releasing the specified products")
 
     return parser
@@ -79,7 +79,8 @@ def main():
     if not os.path.exists(opts.logdir):
         fail("Log directory not found: " + opts.logdir)
 
-    global fulllog = os.path.join(logdir, "releaseProducts-%d.log" % os.getpid())
+    global fulllog
+    fulllog = os.path.join(opts.logdir, "releaseProducts-%d.log" % os.getpid())
 
     products = map(lambda p: p.split('/', 1), args)
     bad = filter(lambda p: len(p) < 2, products)
@@ -131,7 +132,7 @@ def deployManifest(manifestfile):
     with open(fulllog, 'a') as fd:
         print >> fd, cmd
 
-    notok = os.system(cmd):
+    notok = os.system(cmd)
     if notok:
         raise RuntimeError("Detected failure from releaseAndInstall (%d)" %
                            notok)
@@ -202,7 +203,7 @@ def runValidateRelease(prodname, version):
 
     cmd += " | tee -a %s" % fulllog
 
-    notok = os.system(cmd):
+    notok = os.system(cmd)
     if notok:
         raise RuntimeError("Detected failure from validateRelease (%d)" % notok)
 

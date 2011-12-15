@@ -9,7 +9,7 @@ prog = os.path.basename(sys.argv[0])
 if prog.endswith(".py"):
     prog = prog[:-3]
 
-usage = "%(prog)s [ -h ] [ -vs ] -d DIR manifest ..."
+usage = "%(prog)s [ -h ] [ -vs ] [ -d DIR ] manifest ..."
 description = \
 """Copy new manifest files into the manifests directory.  
 """
@@ -20,7 +20,7 @@ defaultServerRoot=None
 
 def main():
     cl = setopts()
-    (opts, args) = cl.parse_args()
+    (opts, args) = loadconfig()
 
     if not opts.serverdir:
         fail("-d option missing from arguments", 2)
@@ -42,6 +42,25 @@ def main():
     failed = releaser.releaseAll(opts.overwrite, opts.atomic)
 
 
+def loadconfig():
+    import lsstdistrib.config as config
+    import lsstdistrib.utils  as utils
+
+    try:
+        configfile = os.path.join(os.environ['DEVENV_SERVERTOOLS_DIR'], "conf",
+                                  "common_conf.py")
+        utils.loadConfigfile(configfile)
+    except Exception, ex:
+        print >> sys.stderr, "Warning: unable to load system config file:", str(ex)
+    
+    cl = setopts()
+    (opts, args) = cl.parse_args()
+
+    if not opts.serverdir and config.serverdir:
+        opts.serverdir = config.serverdir
+
+    return (opts, args)
+
 def setopts():
     parser = optparse.OptionParser(prog=prog, usage=usage, 
                                    description=description)
@@ -58,8 +77,8 @@ def setopts():
                       " error")
     parser.add_option("-o", "--overwrite", action="store_true", dest="overwrite",
                       default=False,
-                      help="fail if this release would overwrite a previous" + 
-                      " one")
+                      help="do not fail if this release would overwrite a" + 
+                      " previous one")
 
     return parser
 

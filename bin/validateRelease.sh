@@ -19,6 +19,7 @@ function usage {
 function help {
     usage
     echo "Options:"
+    echo "  -c FILE     the configuration file to use"
     echo "  -b DIR      the base directory for the release-related directories"
     echo "  -r DIR      the reference stack directory"
     echo "  -j NUM      use NUM threads when building"
@@ -284,8 +285,8 @@ function eupsinstall {
     tagopt=
     [ -n "$eupstag" ] && tagopt="--tag=$eupstag"
 
-    echo eups distrib install $tagopt $prodname $version 
-    eups distrib install $tagopt $prodname $version || {
+    echo eups distrib install --nolocks $tagopt $prodname $version 
+    eups distrib install --nolocks $tagopt $prodname $version || {
         echo "${prog}: Failed to install product"
         SCONSFLAGS=$oldSCONSFLAGS
         return 9

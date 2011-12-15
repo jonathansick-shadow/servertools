@@ -66,7 +66,8 @@ class Repository(object):
             elif os.path.exists(ppdir):
                 pdir = ppdir
             else:
-                raise manifest.DeployedProductNotFound(prodname)
+                msg = "No product directory found for " + prodname
+                raise manifest.DeployedProductNotFound(prodname, msg=msg)
 
         if not version: 
             return pdir

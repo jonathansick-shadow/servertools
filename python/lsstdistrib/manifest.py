@@ -526,9 +526,13 @@ class DeployedManifests(object):
         versions = self.getVersions(prodname)
         if not versions:
             raise DeployedProductNotFound(prodname, version)
+
         versions = filter(lambda b: buildRe.search(b), 
                           filter(lambda v: v.startswith(version+"+"), 
                                  versions))
+        if len(versions) == 0:
+            raise DeployedProductNotFound(prodname, version)
+            
         versions.sort(self.vcmp)
         return int(buildRe.search(versions[-1]).group(1))
 
@@ -741,7 +745,7 @@ class BuildDependencies(object):
             out.addRecord(*dep.data)
         return out
 
-class OrderProducts(object):
+class SortProducts(object):
     """
     a class for sorting a list of products into dependency order.  This 
     functionality is provided as a class to allow the details of how this
