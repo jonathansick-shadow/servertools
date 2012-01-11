@@ -92,14 +92,21 @@ shift $(($OPTIND - 1))
 
 [ -e "$conffile" ] && \
     . $configfile
+[ -e "$releaseFunctionLib" ] || {
+    echo "${prog}:  releaseFunction library does not exist: $releaseFunctionLib"
+    exit 1
+}
+. $releaseFunctionLib
 [ -e "$reposExtractLib" ] || {
     echo "${prog}:  reposExtract plugin does not exist: $reposExtractLib"
     exit 1
 }
+. $reposExtractLib
 [ -e "$copyPackageLib" ] || {
     echo "${prog}:  copyPackage plugin does not exist: $copyPackageLib"
     exit 1
 }
+. $copyPackageLib
 
 { echo $refstack | grep -qsE '^/'; } || refstack=$PWD/$refstack
 { echo $workdir  | grep -qsE '^/'; } || workdir=$PWD/$workdir
@@ -136,13 +143,14 @@ function deployToStageServer {
         fi
     }
 
-    if [ -z "$manifest" ]; then
+    [ -z "$manifest" ] && {
         # create a manifest if one was not provided
         createManifest || exit $?
-    else
-        cp "${tarrootdir}.tar.gz" $product/$version || return 6
-        cp $manifest $product/$version/
-    fi
+    }
+
+    cp "${tarrootdir}.tar.gz" $prodname/$version || return 6
+    cp $manifest $prodname/$version || return 6
+    cp "${tarrootdir}/ups/$prodname.table" $prodname/$version || return 6
 
     # buildProduct "$tarrootdir" || return $?
     
@@ -153,14 +161,13 @@ function deployToStageServer {
 # installing the product.
 #
 function createManifest {
-    # PUT THIS INTO SEPARATE SCRIPT
     local opts
     opts=
     [ -n "$ignorefailedtests" ] && opts="-i"
-    echo buildManifest.sh -r $refstack -w "$sessiondir" -s "$sessiondir/$tarrootdir" -d "$sandbox" -c "$createpkgs" $opts $product $version "$sessiondir/${tarrootdir}.manifest"
-    buildManifest.sh -r $refstack -w "$sessiondir" -s "$sessiondir/$tarrootdir" -d "$sandbox" -c "$createpkgs" $opts $product $version "$sessiondir/${tarrootdir}.manifest" || return `expr $? + 10`
+    echo createRelease.sh -nM -r $refstack -w "$sessiondir" -s "$sessiondir/$tarrootdir" -d "$sandbox" -o "$sessiondir/${tarrootdir}.manifest" $opts $product $version
+    createRelease.sh -nM -r $refstack -w "$sessiondir" -s "$sessiondir/$tarrootdir" -d "$sandbox" -o "$sessiondir/${tarrootdir}.manifest" $opts $product $version || return `expr $? + 10`
+
     manifest="$sessiondir/${tarrootdir}.manifest"
-    #
 
 }
 
@@ -204,8 +211,8 @@ mkdir $sessiondir
 setupSessionDir || exit $?
 cd "$sessiondir"
 
-# extract the source
-extractProductSource || exit $?
+# extract the source and create tarball
+extractProductSource $prodname $version $tarrootdir || exit $?
 
 # create the artifacts for the distribution server
 deployToStageServer || exit $?
