@@ -70,6 +70,7 @@ function buildProduct {
     touch buildlog
 
     # get the dependency products tagged current whenever possible
+    echo setup --tag=current -r . | tee -a $buildlog
     setup --tag=current -r .
 
     threadarg=
@@ -126,6 +127,7 @@ function installProduct {
     flavor=`eups flavor`
 
     cd $pdir
+    echo setup -r . | tee -a $buildlog
     setup -r .
     echo scons opt=3 version=$vers install | tee -a $buildlog
     { scons opt=3 version=$vers install >> $buildlog 2>&1 && \
