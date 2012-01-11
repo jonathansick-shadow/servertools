@@ -202,7 +202,10 @@ class UpdateDependents(object):
 
     def updateFromTag(self, tag):
         tagfile = self.server.getTagListFile(tag)
-        self.tagged = TagDef(tagfile)
+        if self.tagged:
+            self.tagged.merge(tagfile)
+        else:
+            self.tagged = TagDef(tagfile)
 
     def getDependents(self):
         """
@@ -364,10 +367,11 @@ class UpdateDependents(object):
         if not upgradedRecords:
             upgradedRecords = self.setUpgradedManifestRecords()
 
+        version = None
         if self.tagged:
             # up-rev the tagged version
             version = self.tagged.getVersion(prodname)
-        else:
+        if not version:
             # up-rev the latest deployed version
             version = self.deployed.getLatestVersion(prodname)
         if not version:
@@ -387,6 +391,14 @@ class UpdateDependents(object):
                 rec = Dependency(rec)
                 if rec.getName() in upgradedRecords:
                     newman.addRecord(*upgradedRecords[rec.getName()])
+                elif self.tagged:
+                    pname = rec.getName()
+                    dver = self.tagged.getVersion(pname)
+                    dman = self.deployed.getManifest(pname, dver)
+                    if dman:
+                        rec = dman.getSelf()
+                        upgradedRecords[pname] = rec
+                    newman.addRecord(*rec)
                 else:
                     newman.addRecord(*rec.data)
 

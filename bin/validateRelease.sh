@@ -24,6 +24,7 @@ function help {
     echo "  -r DIR      the reference stack directory"
     echo "  -j NUM      use NUM threads when building"
     echo "  -t TAG      when deploying, tag the release with the given tag name"
+    echo "  -T TAG      when building/installing, prefer dependencies with this tag"
     echo "  -p          purge previous attempts to validate before executing command"
     echo "  -i          ignore failed tests: don't let failed tests halt validation"
     echo "  -h          print this help and exit"
@@ -51,8 +52,9 @@ ignorefailedtests=
 usebuildthreads=4
 testsHaveFailed=
 eupstag=
+reftag=
 
-while getopts "c:j:b:r:t:pih" opt; do
+while getopts "c:j:b:r:t:T:pih" opt; do
   case $opt in 
     c)
       configfile=$OPTARG 
@@ -74,6 +76,8 @@ while getopts "c:j:b:r:t:pih" opt; do
       ignorefailedtests=1 ;;
     t)
       eupstag=$OPTARG ;;
+    T)
+      reftag=$OPTARG ;;
     h)
       help
       exit 0 ;;
@@ -191,8 +195,13 @@ function buildProduct {
     cd $pdir
     EUPS_PATH=${teststack}:$refstack
 
-    # get the dependency products tagged current whenever possible
-    setup --tag=current -r .
+    # get the dependency products tagged as requested whenever possible,
+    # and current otherwise.  
+    tagopt=""
+    [ -n "$reftag" ] && tagopt=--tag=$reftag
+    echo setup $tagopt --tag=current -r .
+    setup $tagopt --tag=current -r .
+    eups list --setup > eupsenv.txt
 
     threadarg=
     [ -n "$1" ] && threadarg="-j $1"

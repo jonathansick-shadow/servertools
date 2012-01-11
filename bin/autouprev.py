@@ -56,8 +56,14 @@ def main():
         opts.nouprprods = tmp
 
     uprev = UpdateDependents(products, opts.serverdir, log=log)
-    if opts.reftag:
-        uprev.updateFromTag(opts.reftag)
+
+    # set the reference tags
+    for i in xrange(len(opts.reftag)):
+        opts.reftag.extend(opts.reftag.pop(0).split(','))
+    if "current" not in opts.reftag:
+        opts.reftag.append("current")
+    for tag in reversed(opts.reftag):
+        uprev.updateFromTag(tag)
         
     if opts.uprprods or opts.nouprprods:
         # restrict the products we up-rev
@@ -157,14 +163,14 @@ def setopts():
                       metavar="FILE", 
                       help="a file to write the list of updated manifest files")
     parser.add_option("-u", "--update-products", action="append", 
-                      metavar="NAME[,NAME...]", dest="uprprods",
+                      metavar="NAME[,NAME...]", dest="uprprods", type="str",
                       help="a comma-separated list of names of products to restrict the up-revs to")
     parser.add_option("-U", "--no-update-products", action="append", 
-                      metavar="NAME[,NAME...]", dest="nouprprods",
+                      metavar="NAME[,NAME...]", dest="nouprprods", type="str",
                       help="a comma-separated list of names of products not to up-rev")
-    parser.add_option("-T", "--reference-tag", action="store", dest="reftag",
-                      metavar="TAG", default="current",
-          help="use the given tag as a guide for choosing dependency versions")
+    parser.add_option("-T", "--reference-tag", action="append", dest="reftag",
+                      metavar="TAG[,TAG]", default=[], type="str",
+                      help="use the given tags (in order) as a guide for choosing dependency versions")
     parser.add_option("-r", "--release", action="store_true", default=False,
                       dest="release",
                       help="actually deploy manifests into manifest directory, making the new builds available to clients")

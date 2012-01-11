@@ -9,13 +9,13 @@ import sys, os, re, cStringIO
 
 class TagDef(object):
 
-    def __init__(self, file):
-        self.file = file
+    def __init__(self, tagfile):
+        self.file = tagfile
         self.prod = {}
-        self._load(self.file)
+        self._load(tagfile)
 
-    def _load(self, file):
-        with open(file) as cf:
+    def _load(self, tagfile):
+        with open(tagfile) as cf:
             parts = []
             for line in cf:
                 line = line.strip()
@@ -27,6 +27,10 @@ class TagDef(object):
                     if len(parts) < 4:
                         parts.append('')
                 self.prod[parts[0]] = parts
+
+    def merge(self, tagfile):
+        self.file = '+' + tagfile
+        self._load(tagfile)
 
     def lookup(self, prodname):
         """return the tag data for a given product or None if does not exist"""
