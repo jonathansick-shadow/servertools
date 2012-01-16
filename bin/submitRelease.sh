@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/bash -i
 #
 # submitRelease.sh -- request the release of a tagged version of a product
 # 
