@@ -9,8 +9,9 @@
 SHELL=/bin/bash
 refstack=/lsst/DC3/stacks/default
 workdir=/lsst/DC3/distrib/default/submitRelease
+stagesrvr=/lsst/DC3/distrib/w12/www
 startdir=$PWD
-prog=`basename $0`
+prog=`basename $0 | sed -e 's/\..*$//'`
 
 [ -n "$DEVENV_SERVERTOOLS_DIR" ] || {
     echo "${prog}: devenv_servertools not setup"
@@ -19,10 +20,10 @@ prog=`basename $0`
 libdir="$DEVENV_SERVERTOOLS_DIR/lib"
 reposExtractLib="$libdir/gitReposExtract.sh"  # default; override in conf
 copyPackageLib="$libdir/rsyncCopyPackage.sh"  # default; override in conf
-releaseFunctionsLib="$libdir/releaseFunctions.sh"
+releaseFunctionLib="$libdir/releaseFunction.sh"
 
 function usage {
-    echo Usage: `basename $0` "[-c FILE -r DIR -j NUM -t TAGS -ih]" product version "[manifest]"
+    echo Usage: `basename $0` "[-c FILE -r DIR -j NUM -t TAGS -iVCh]" product version "[manifest]"
 }
 
 function help {
@@ -33,13 +34,19 @@ function help {
     echo "current versions of product's dependencies."
     echo 
     echo "Options:"
-    echo "  -c FILE     the configuration file to use"
     echo "  -r DIR      the reference stack directory"
-    echo "  -w DIR      a 'work' directory to use for private scratch"
-    echo "  -j NUM      use NUM threads when building"
-    echo "  -t TAGS     when deploying, tag the release with the given tags name."
-    echo "                tag names current and stable are disallowed."
+    echo "  -t TAG[,TAG]  when creating a manifest on the fly (i.e. manifest is not"
+    echo "                provided) prefer dependencies with these (server-assign) tags."
     echo "  -i          ignore failed tests: don't let failed tests prevent release"
+    echo "  -n          preserve all generated release artifacts"
+    echo "  -j NUM      use NUM threads when building"
+    echo "  -V          force validation: check that the tests pass even if the tests"
+    echo "                were run implicitly when a default manifest was created."
+    echo "  -C          prep but do not commit this release (used for testing purposes)"
+    echo "  -T          deploy to test server only"
+    echo "  -c FILE     the configuration file to use"
+    echo "  -w DIR      a 'work' directory to use for private scratch"
+    echo "  -U USER     identify the user running this command"
     echo "  -h          print this help and exit"
 }
 
@@ -47,8 +54,12 @@ configfile=$DEVENV_SERVERTOOLS_DIR/conf/submitRelease_conf.sh
 usebuildthreads=4
 ignorefailedtests=
 testsHaveFailed=
+checkTests=
+reftags=
+testserver=
+asuser=
 
-while getopts "c:j:r:w:t:ih" opt; do
+while getopts "c:j:r:w:t:U:iVCTnh" opt; do
   case $opt in 
     c)
       configfile=$OPTARG 
@@ -58,15 +69,25 @@ while getopts "c:j:r:w:t:ih" opt; do
       }
       ;;
     r)
-      refstack=$OPTARG
+      refstack=$OPTARG ;;
     w)
-      workdir=$OPTARG
+      workdir=$OPTARG ;;
     j)
       usebuildthreads=$OPTARG ;;
     i)
       ignorefailedtests=1 ;;
+    V)
+      checkTests=1 ;;
+    C)
+      nocommit=1 ;;
+    n)
+      noclean=1 ;;
     t)
-      eupstag=$OPTARG ;;
+      reftags=$OPTARG ;;
+    T)
+      testserver=1 ;;
+    U)
+      asuser=$OPTARG ;;
     h)
       help
       exit 0 ;;
@@ -82,11 +103,6 @@ shift $(($OPTIND - 1))
 [ $# -lt 2 ] && {
     echo "${prog}: Missing argument: version"
     usage
-    exit 1
-}
-
-[ -n "$manifest" -a ! -d "$manifest" ] && {
-    echo "${prog}: Manifest file not found: $manifest"
     exit 1
 }
 
@@ -125,15 +141,57 @@ shift $(($OPTIND - 1))
 #
 function setupSessionDir {
     [ -d "$sessiondir" ] || mkdir $sessiondir
+    echo $$ $asuser > $sessiondir/$prog.pid
     mksandbox $sandbox || return 3
     makeStageServer $createpkgs || return 3
 }
 
+## 
+# check to see if a session directory is in use
+#
+function checkForSession {
+    [ -e "$sessiondir" ] && { 
+        echo -n "Release of $prodname $version is already in progress"
+        if [ -e "$sessiondir/$prog.pid" ]; then
+            who=`cat $sessiondir/$prog.pid`
+            pid=`echo $who | awk '{print $1}'`
+            user=`echo $who | awk '{print $2}'`
+            [ -z "$user" ] && user="unknown"
+            echo -n " by user $user (pid=$pid)"
+        fi
+        echo "; aborting."
+        return 1
+    }
+    return 0
+}
+
 ##
-# deploy the product artifacts to the staging server.  If a manifest 
-# was not provided, one will be generated.
+# deploy the product artifacts to the staging server.  
 function deployToStageServer {
+    echo Deploying to server...
+    [ -d $createpkgs/$prodname/$version ] || {
+        echo Failed to find server artifacts: $createpkgs/$prodname/$version
+        return 3
+    }
+    [ -d $stagesrvr ] || { 
+        echo Missing stage server directory: $stagesrvr
+        return 3
+    }
+    pushd $createpkgs > /dev/null
+    { tar cf - $prodname/$version | (cd $stagesrvr; tar xf -); } || return 9
+    cp $prodname/$version/b1.manifest $stagesrvr/manifests/$prodname-${version}+1.manifest || return 9
+
+    synctoweb || return 10
+    [ -n "$testserver" ] || synctostd || return 10
+}
+
+##
+# validate the requested release via a test deployment and install.  If a 
+# manifest was not provided, one will be generated.
+#
+function validateVersion {
     # assume we are in $sessiondir
+    # package up the source
     [ -d "$tarrootdir" ] || {
         if [ -f "${tarrootdir}.tar.gz" ]; then
             tar xzf "${tarrootdir}.tar.gz" || return 6
@@ -143,17 +201,61 @@ function deployToStageServer {
         fi
     }
 
-    [ -z "$manifest" ] && {
+    if [ -z "$manifest" ]; then
         # create a manifest if one was not provided
-        createManifest || exit $?
+        createManifest || return $?
+    else
+        # 
+        mkdir -p $createpkgs/$prodname/$version
+        cp "${tarrootdir}.tar.gz" $createpkgs/$prodname/$version || return 6
+        cp $manifest $createpkgs/$prodname/$version || return 6
+        cp "${tarrootdir}/ups/$prodname.table" $createpkgs/$prodname/$version || return 6
+        checkTests=1
+    fi
+    cp $createpkgs/$prodname/$version/b1.manifest $createpkgs/manifests/${tarrootdir}+1.manifest
+
+    # install from test server
+    echo Testing install from server...
+    EUPS_PATH=${sandbox}:$EUPS_PATH
+    [ -n "$usebuildthreads" ] && { 
+        export SCONSFLAGS="-j $usebuildthreads"
+        echo SCONSFLAGS=$SCONSFLAGS
     }
+    echo eups distrib install --nolocks --noclean -r $createpkgs $prodname ${version}+1
+    eups distrib install --nolocks --noclean -r $createpkgs $prodname ${version}+1 || return 7
 
-    cp "${tarrootdir}.tar.gz" $prodname/$version || return 6
-    cp $manifest $prodname/$version || return 6
-    cp "${tarrootdir}/ups/$prodname.table" $prodname/$version || return 6
-
-    # buildProduct "$tarrootdir" || return $?
-    
+    local flavor=`eups flavor`
+    pushd $sandbox/EupsBuildDir/$flavor/${tarrootdir}+1 > /dev/null || return 2
+    [ -n "$checkTests" ] && {
+        # check the tests
+        echo Checking tests...
+        [ -d "${tarrootdir}/tests/.tests" ] || {
+            # the tests need to be run
+            [ -e "eupssetup.sh" ] && source eupssetup.sh
+            cd ${tarrootdir} >/dev/null
+            opts=
+            [ -n "$usebuildthreads" ] && opts="-j $usebuildthreads"
+            echo scons opt=3 version=${version}+1 $opts tests
+            scons opt=3 version=${version}+1 $opts tests || return 8
+            mkdir -p tests/.tests
+            { checkTests $PWD && checkTests=; } || {
+                echo "rechecking..."
+                scons opt=3 tests || return 8
+            }
+            cd $sandbox/EupsBuildDir/$flavor/${tarrootdir}+1 >/dev/null
+        }
+    }
+    [ -n "$checkTests" ] || {
+        checkTests $tarrootdir || {
+            err=$?
+            if [ -n "$ignorefailedtests" ]; then
+                echo "Ignoring failed tests results"
+            else
+                return $9
+            fi
+        }
+    }
+    popd >/dev/null
 }
 
 ##
@@ -163,18 +265,21 @@ function deployToStageServer {
 function createManifest {
     local opts
     opts=
-    [ -n "$ignorefailedtests" ] && opts="-i"
-    echo createRelease.sh -nM -r $refstack -w "$sessiondir" -s "$sessiondir/$tarrootdir" -d "$sandbox" -o "$sessiondir/${tarrootdir}.manifest" $opts $product $version
-    createRelease.sh -nM -r $refstack -w "$sessiondir" -s "$sessiondir/$tarrootdir" -d "$sandbox" -o "$sessiondir/${tarrootdir}.manifest" $opts $product $version || return `expr $? + 10`
+    [ -n "$usebuildthreads" ] && opts="$opts -j $usebuildthreads"
+    [ -n "$ignorefailedtests" ] && opts="$opts -i"
+    [ -n "$reftags" ] && opts="$opts -t $reftags"
 
-    manifest="$sessiondir/${tarrootdir}.manifest"
-
+    echo createRelease.sh -S -r $refstack -w "$sessiondir" -s "$sessiondir/$tarrootdir" -o "$createpkgs" $opts $product $version
+    createRelease.sh -S -r $refstack -w "$sessiondir" -s "$sessiondir/$tarrootdir" -o "$createpkgs" $opts $product $version || return `expr $? + 10`
+    manifest="$createpkgs/$product/$version/b1.manifest"
 }
 
 function onexit {
-    cd $startdir
-    [ -n "$sessiondir" -a -d "$sessiondir" ] && {
-        rm -rf $sessiondir
+    [ -z "$noclean" ] && {
+        cd $startdir
+        [ -n "$sessiondir" -a -d "$sessiondir" ] && {
+            rm -rf $sessiondir
+        }
     }
 }
 
@@ -184,6 +289,10 @@ function interrupted {
 
 trap "onexit" 0
 trap "interrupted" 1 2 3 13 15
+clearlsst
+source $refstack/loadLSST.sh
+# setup devenv_servertools
+{ pushd $HOME/git/devenv_servertools >/dev/null && setup -r . && popd >/dev/null; }
 
 prodname=$1
 version=$2
@@ -195,16 +304,21 @@ if { echo $version | grep -qsE '[\+][0-9]+'; }; then
 fi
 tarrootdir=`productDirName $prodname $version`
 
-sessiondir="$workdir/$product-$version"
+[ -n "$manifest" ] && {
+    [ ! -f "$manifest" ] && {
+        echo "${prog}: Manifest file not found: $manifest"
+        exit 1
+    }
+    checkTests=1
+    { echo $manifest | grep -qsE '^/'; } || manifest=$PWD/$manifest
+}
+
+sessiondir="$workdir/$prodname-$version"
 sandbox="$sessiondir/test"
 createpkgs="$sessiondir/pkgs"
 
 # lock this session: prevent multiple simultaneous releases of the same version
-[ -e "$sessiondir" ] && { 
-    echo "Release of $prodname $version is already in progress; aborting"
-    sessiondir=
-    exit 3
-}
+checkForSession || exit 3
 mkdir $sessiondir
 
 # setup up our work area
@@ -214,10 +328,19 @@ cd "$sessiondir"
 # extract the source and create tarball
 extractProductSource $prodname $version $tarrootdir || exit $?
 
-# create the artifacts for the distribution server
-deployToStageServer || exit $?
+# do a test deployment and install using the given manifest.  If one was 
+# not provided, create one.
+validateVersion || exit $?
+
+# send validated artifacts to the actual server.
+if [ -z "$nocommit" ]; then
+    deployToStageServer || exit $?
+else
+    echo "Release not committed to server (as per request)"
+fi
 
 # 
+
 
 
 

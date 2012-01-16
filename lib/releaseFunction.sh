@@ -62,16 +62,24 @@ function extractProductSource {
 function buildProduct {
     # assume that our stack has current tags up to date
 
-    local prod=$1 vers=$2 pdir=$3 threads=$4
+    local prod=$1 vers=$2 pdir=$3 tags=$4 threads=$5
     local oldpath=$EUPS_PATH
+
+    tagarg=
+    [ -n "$tags" ] && {
+        for tag in `echo $tags|sed -e 's/,/ /g'`; do
+           tagarg="$tagarg --tag=$tag" 
+        done
+    }
+    tagarg="$tagarg --tag=current"
 
     cd $pdir
     local buildlog=build.log
     touch buildlog
 
     # get the dependency products tagged current whenever possible
-    echo setup --tag=current -r . | tee -a $buildlog
-    setup --tag=current -r .
+    echo setup $tagarg -r . | tee -a $buildlog
+    setup $tagarg -r .
 
     threadarg=
     [ -n "$threads" ] && threadarg="-j $threads"
@@ -195,12 +203,10 @@ function recommendBuildNumber {
 # create a directory to take the output from eups distrib create
 #
 function makeStageServer {
-    set -e
     local serverdir
     serverdir=$1
-    mkdir -p "$serverdir/manifests"
+    mkdir -p "$serverdir/manifests" || return 1
     [ -f "$serverdir/config.txt" ] || \
-       cp $DEVENV_SERVERTOOLS_DIR/conf/lsstserver_config.txt "$serverdir/config.txt"
-    set +e
+       cp $DEVENV_SERVERTOOLS_DIR/conf/lsstserver_config.txt "$serverdir/config.txt" || return 1
 }
 

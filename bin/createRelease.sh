@@ -30,7 +30,7 @@ releaseFunctionLib="$libdir/releaseFunction.sh"  # default; override in conf
 
 function usage {
     echo  Usage: `basename $0` "[-c FILE -w DIR -r DIR -s DIR -c DIR -d DIR]" 
-    echo "           [-j NUM -b NUM -o PATH -iMnh]" PRODUCT VERSION 
+    echo "           [-j NUM -b NUM -o PATH -inh] [-M|-S]" PRODUCT VERSION 
 }
 
 function help {
@@ -44,10 +44,13 @@ filename given by the argument.
 
 Options:
   -M       create only the manifest file
+  -t TAG[,TAG...] a list of tags to build against.  If not provided, the 
+             current dependencies will be used.  
   -o PATH  the output location: if -M is used, this is the file to write 
-             the manifest to; otherwise, it is a directory to create and
-             place all release artifacts into.  If not given, the file 
-             will be ./PRODUCT-VERSION+BNUM.manifest with -M, or 
+             the manifest to; if -S is used instead, this the root directory 
+             of an existing server directory; otherwise, it is a name of simple 
+             directory to create and place all release artifacts into.  If not 
+             given, the file will be ./PRODUCT-VERSION+BNUM.manifest with -M, or 
              ./PRODUCT-VERSION+BNUM, otherwise.  
   -i       ignore failed tests: don't let failed tests prevent release
   -n       preserve all generated release artifacts
@@ -58,7 +61,7 @@ Options:
   -r DIR   the reference stack directory
   -s DIR   the source directory to use to build the code 
   -d DIR   a development sandbox for installing a test installation
-  -c DIR   staging package server to write release artifacts into
+  -S DIR   staging package server to write release artifacts into
   -b BNUM  take BNUM as the build number for the new release
   -h       print this help and exit
 
@@ -75,8 +78,9 @@ tmpsrcdir=
 buildNum=
 output=
 manifestOnly=
+taglist=
 
-while getopts "r:w:s:d:c:j:b:inMh" opt; do
+while getopts "r:t:w:s:d:o:c:j:b:inMSh" opt; do
   case $opt in 
     c)
       configfile=$OPTARG 
@@ -92,16 +96,18 @@ while getopts "r:w:s:d:c:j:b:inMh" opt; do
       workdir=$userworkdir ;;
     s)
       srcdir=$OPTARG ;;
-    c)
-      srvrdir=$OPTARG ;;
     d)
       sandbox=$OPTARG ;;
     o)
       output=$OPTARG ;;
+    t)
+      taglist=$OPTARG ;;
     j)
       usebuildthreads=$OPTARG ;;
     b)
       buildNum=$OPTARG ;;
+    S)
+      srvroutdir=1 ;;
     M)
       manifestOnly=1 ;;
     i)
@@ -114,6 +120,12 @@ while getopts "r:w:s:d:c:j:b:inMh" opt; do
   esac
 done
 shift $(($OPTIND - 1))
+
+[ -n "$manifestOnly" -a -n "$srvroutdir" ] && {
+    echo "${prog}: use only -S or -M or neither"
+    usage
+    exit 1
+}
 
 [ $# -lt 1 ] && {
     echo "${prog}: Missing arguments: product version"
@@ -158,21 +170,36 @@ shift $(($OPTIND - 1))
 }
 
 prodname=$1; shift
-version=$1;  shift
-manifest=$1
+version=$1;  
 log=$workdir/$prog.log
 
 [ -n "$srcdir" -a ! -d "$srcdir" ] && {
     echo "Product source code directory not found: $srcdir"
     exit 2
 }
+
+if [ -n "$manifestOnly" ]; then
+    [ -z "$output" ] && output=$prodname-$version+$buildNum.manifest
+else
+    [ -z "$output" ] && output=$prodname-$version+$buildNum 
+    [ -n "$srvroutdir" ] && srvrdir=$output
+fi
 if [ -z "$srvrdir" ]; then
     srvrdir="$workdir/pkgs.$$"
-    makeStageServer $srvrdir || exit 2
-elif [ ! -d "$srvrdir" ]; then
+elif [ -z "$srvoutdir" -a ! -d "$srvrdir" ]; then
     echo "Server staging directory not found: $srvrdir"
     exit 2
 fi
+[ ! -e "$srvrdir/config.txt" ] && {
+    makeStageServer $srvrdir || exit 2
+}
+
+[ -n "$output" -a -z "$srvroutdir" -a -e "$output" ] && {
+    echo "${prog}: output file/dir exists: $output"
+    exit 2
+}
+
+
 if [ -z "$sandbox" ]; then
     sandbox="$workdir/test.$$"
     mksandbox $sandbox || exit 2
@@ -191,7 +218,7 @@ function onexit {
         if [ -z "$userworkdir" ]; then
             rm -rf $workdir
         else
-            [ -d "$srvrdir" ] && { echo $srvrdir | grep -sq '.'$$'$'; } && {
+            [ -d "$srvrdir" ] && { echo $srrvdir | grep -v "^$userworkdir" | grep -sq '.'$$'$'; } && {
                 rm -rf $srvrdir
             }
             [ -d "$sandbox" ] && { echo $sandbox | grep -sq '.'$$'$'; } && {
@@ -214,7 +241,7 @@ trap "interrupted" 1 2 3 13 15
 
 clearlsst
 source $refstack/loadLSST.sh
-pushd $HOME/git/lssteups >/dev/null && setup -r . && popd >/dev/null
+#pushd $HOME/git/lssteups >/dev/null && setup -r . && popd >/dev/null
 #set -x
 
 # make sure we have version without a build number and a build numer to use
@@ -228,16 +255,6 @@ pushd $HOME/git/lssteups >/dev/null && setup -r . && popd >/dev/null
 }
 [ -z "$buildNum" ] && {
     buildNum=`recommendBuildNumber $prodname $vers`
-}
-
-if [ -n "$manifestOnly" ]; then
-    [ -z "$output" ] && output=$prodname-$version+$buildNum.manifest
-else
-    [ -z "$output" ] && output=$prodname-$version+$buildNum 
-fi
-[ -n "$output" -a -e "$output" ] && {
-    echo "${prog}: output file/dir exists: $output"
-    exit 2
 }
 
 cd $workdir
@@ -259,7 +276,7 @@ oldSCONSFLAGS=$SCONSFLAGS
 
 # build the product
 EUPS_PATH=$refstack
-buildProduct $prodname $version+$buildNum $srcdir || exit $?
+buildProduct $prodname $version+$buildNum $srcdir $taglist || exit $?
 
 # check the tests
 checkTests $srcdir || {
@@ -289,9 +306,11 @@ cd $startdir
 if [ -n "$manifestOnly" ]; then
     echo Moving manifest to $output...
     mv $srvrdir/$prodname/$version/b$buildNum.manifest $output || exit 10
-else
+elif [ -z "$srvroutdir" ]; then 
     echo Moving release artifacts to $output...
     mv $srvrdir/$prodname/$version $output || exit 10
+else 
+    echo Release artifacts in $srvrdir/$prodname/$version
 fi
 
 exit 0
