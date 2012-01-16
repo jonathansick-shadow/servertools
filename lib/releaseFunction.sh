@@ -57,36 +57,26 @@ function extractProductSource {
 # @param 1    name of the product
 # @param 2    the installed-as version (i.e. with build number, if desired)
 # @param 3    product source directory
-# @param 4    the number of threads to use (optional)
+# @param 4    options to pass onto the setup command
+# @param 5    options to pass onto the scons command
 #
 function buildProduct {
     # assume that our stack has current tags up to date
 
-    local prod=$1 vers=$2 pdir=$3 tags=$4 threads=$5
+    local prod=$1 vers=$2 pdir=$3 setupopts=$4 sconsopts=$5
     local oldpath=$EUPS_PATH
-
-    tagarg=
-    [ -n "$tags" ] && {
-        for tag in `echo $tags|sed -e 's/,/ /g'`; do
-           tagarg="$tagarg --tag=$tag" 
-        done
-    }
-    tagarg="$tagarg --tag=current"
 
     cd $pdir
     local buildlog=build.log
     touch buildlog
 
     # get the dependency products tagged current whenever possible
-    echo setup $tagarg -r . | tee -a $buildlog
-    setup $tagarg -r .
-
-    threadarg=
-    [ -n "$threads" ] && threadarg="-j $threads"
+    echo setup $setupopts -r . | tee -a $buildlog
+    setup $setupopts -r .
 
     buildok=
-    echo scons opt=3 version=$vers $threadarg | tee -a $buildlog
-    scons opt=3 version=$vers $threadarg >> $buildlog 2>&1 && buildok=1
+    echo scons $sconsopts opt=3 version=$vers | tee -a $buildlog
+    scons $sconsopts opt=3 version=$vers >> $buildlog 2>&1 && buildok=1
     if [ -n "$buildok" ]; then
         mkdir -p "tests/.tests"
     else
@@ -125,20 +115,22 @@ function checkTests {
 # @param 2    the version to install as (i.e. with build number, if desired)
 # @param 3    product source directory
 # @param 4    install stack
+# @param 5    options to pass onto the setup command
+# @param 6    options to pass onto the scons command
 #
 function installProduct {
-    local prod=$1 vers=$2 pdir=$3 teststack=$4
+    local prod=$1 vers=$2 pdir=$3 teststack=$4 setupopts=$5 sconsopts=$6
     local buildlog=build.log
-    touch buildlog
+    touch $buildlog
 
     EUPS_PATH=${teststack}:$EUPS_PATH
     flavor=`eups flavor`
 
     cd $pdir
-    echo setup -r . | tee -a $buildlog
-    setup -r .
-    echo scons opt=3 version=$vers install | tee -a $buildlog
-    { scons opt=3 version=$vers install >> $buildlog 2>&1 && \
+    echo setup $setupopts -r . | tee -a $buildlog
+    setup $setupopts -r .
+    echo scons $sconsopts opt=3 version=$vers install | tee -a $buildlog
+    { scons $sconsopts opt=3 version=$vers install >> $buildlog 2>&1 && \
       [ -d "$teststack/$flavor/$prod/$vers" ]; } || {
         echo "${prog}: Product failed to install into test stack; see $buildlog"
         tail -40 $buildlog

@@ -245,7 +245,7 @@ function validateVersion {
             cd $sandbox/EupsBuildDir/$flavor/${tarrootdir}+1 >/dev/null
         }
     }
-    [ -n "$checkTests" ] || {
+    [ -n "$checkTests" ] && {
         checkTests $tarrootdir || {
             err=$?
             if [ -n "$ignorefailedtests" ]; then
@@ -268,9 +268,10 @@ function createManifest {
     [ -n "$usebuildthreads" ] && opts="$opts -j $usebuildthreads"
     [ -n "$ignorefailedtests" ] && opts="$opts -i"
     [ -n "$reftags" ] && opts="$opts -t $reftags"
+    [ -n "$noclean" ] && opts="$opts -n"
 
-    echo createRelease.sh -S -r $refstack -w "$sessiondir" -s "$sessiondir/$tarrootdir" -o "$createpkgs" $opts $product $version
-    createRelease.sh -S -r $refstack -w "$sessiondir" -s "$sessiondir/$tarrootdir" -o "$createpkgs" $opts $product $version || return `expr $? + 10`
+    echo createRelease.sh -S -r $refstack -w "$sessiondir" -s "$sessiondir/$tarrootdir" -o "$createpkgs" $opts $prodname $version
+    createRelease.sh -S -r $refstack -w "$sessiondir" -s "$sessiondir/$tarrootdir" -o "$createpkgs" $opts $prodname $version || return `expr $? + 10`
     manifest="$createpkgs/$product/$version/b1.manifest"
 }
 

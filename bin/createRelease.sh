@@ -276,7 +276,21 @@ oldSCONSFLAGS=$SCONSFLAGS
 
 # build the product
 EUPS_PATH=$refstack
-buildProduct $prodname $version+$buildNum $srcdir $taglist || exit $?
+setupopts=
+[ -n "$taglist" ] && {
+    tagarg=
+    [ -n "$taglist" ] && {
+        for tag in `echo $taglist|sed -e 's/,/ /g'`; do
+           tagarg="$tagarg --tag=$tag" 
+        done
+    }
+    tagarg="$tagarg --tag=current"
+    setupopts=$tagarg
+}
+sconsopts=
+[ -n "$usebuildthreads" ] && sconsopts="-j $usebuildthreads"
+buildProduct $prodname $version+$buildNum $srcdir "$setupopts" "$sconsopts" \
+  || exit $?
 
 # check the tests
 checkTests $srcdir || {
@@ -289,7 +303,7 @@ checkTests $srcdir || {
 }
 
 EUPS_PATH=$refstack
-installProduct $prodname $version+$buildNum $srcdir $sandbox || exit $?
+installProduct $prodname $version+$buildNum $srcdir $sandbox "$setupopts" "$sconsopts" || exit $?
 
 EUPS_PATH=$refstack
 distribcreate $prodname $version+$buildNum $srvrdir $workdir $sandbox || exit $?

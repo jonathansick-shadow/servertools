@@ -25,9 +25,10 @@ Options:
   -c FILE  the configuration file to use 
   -h       print this help and exit
 EOF
+}
 
 configfile=$DEVENV_SERVERTOOLS_DIR/conf/createRelease_conf.sh
-while getopts "r:t:w:s:d:o:c:j:b:inMSh" opt; do
+while getopts "w:c:h" opt; do
   case $opt in 
     c)
       configfile=$OPTARG 
@@ -79,5 +80,13 @@ sessiondir="$workdir/$prodname-$version"
     }
 }
 
-[ -e "$sessiondir" ] && rm -rf $sessiondir
+[ -e "$sessiondir" ] && {
+    rm -rf $sessiondir || {
+        echo "${prog}: Failed to remove session dir: $sessiondir"
+        exit 2
+    }
+}
+echo "Session cleared for $prodname $version"
+
+
 
