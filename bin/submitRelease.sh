@@ -178,6 +178,15 @@ function deployToStageServer {
         return 3
     }
     pushd $createpkgs > /dev/null
+
+    # update the header of the manifest to identify who submitted it
+    local manifest=$prodname/$version/b1.manifest
+    local now=`date`
+    local ins=`printf "# Submitter:    %s\n# Date:         %s\n#" $asuser "$now"`
+    sed -e "/^# pkg/ i\$ins" $manifest > $manifest.upd || return 3
+    [ -f "$manifest.upd" ] || return 3
+    mv $manifest.upd $manifest
+
     { tar cf - $prodname/$version | (cd $stagesrvr; tar xf -); } || return 9
     cp $prodname/$version/b1.manifest $stagesrvr/manifests/$prodname-${version}+1.manifest || return 9
 

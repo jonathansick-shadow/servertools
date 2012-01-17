@@ -7,6 +7,7 @@
 function reposExtract {
     local prodname=$1 taggedas=$2 proddir=$3
     local reposname=$prodname
+    local reposroot=$LSST_DMS
     if [ "$1" = "lssteups" ]; then
         reposname=devenv/lssteups
     elif [ "$1" = "lsst" ]; then
@@ -18,10 +19,10 @@ function reposExtract {
     fi
 
     echo git archive --format=tar --prefix=$proddir/                \
-                     --remote=$LSST_DMS/$reposname.git $taggedas \| \
+                     --remote=$reposroot/$reposname.git $taggedas \| \
              gzip -c \>  $prodname-$taggedas.tar.gz
     { git archive --format=tar --prefix=$proddir/   \
-                --remote=$LSST_DMS/$reposname.git $taggedas || return $?; } | \
+                --remote=$reposroot/$reposname.git $taggedas || return $?; } | \
         gzip -c >  $prodname-$taggedas.tar.gz
 
     tar xzf $prodname-$taggedas.tar.gz
