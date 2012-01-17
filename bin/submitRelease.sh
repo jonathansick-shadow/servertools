@@ -290,10 +290,11 @@ function interrupted {
 
 trap "onexit" 0
 trap "interrupted" 1 2 3 13 15
+dsthome=$DEVENV_SERVERTOOLS_DIR
 clearlsst
 source $refstack/loadLSST.sh
 # setup devenv_servertools
-{ pushd $HOME/git/devenv_servertools >/dev/null && setup -r . && popd >/dev/null; }
+{ pushd $dsthome >/dev/null && setup -r . && popd >/dev/null; }
 
 prodname=$1
 version=$2
