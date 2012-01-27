@@ -31,7 +31,7 @@ copyPackageLib="$libdir/rsyncCopyPackage.sh"  # default; override in conf
 releaseFunctionLib="$libdir/releaseFunction.sh"
 
 function usage {
-    echo Usage: `basename $0` "[-c FILE -r DIR -j NUM -t TAGS -iCnVh]" product version "[manifest]"
+    echo Usage: `basename $0` "[-c FILE -r DIR -j NUM -t TAGS -iCnVh] product version [manifest]"
 }
 
 function help {
@@ -403,10 +403,13 @@ function updateRefStack {
     }
 
     tmplog=$sessiondir/install_${prodname}-${version}+${bn}.log
+    echo EUPS_PKGROOT=$EUPS_PKGROOT
     echo eups distrib install --nolocks $prodname ${version}+${bn} | tee -a $log
     eups distrib install --nolocks $prodname ${version}+${bn} > $tmplog 2>&1 || {
+        [ -n "$dolog" ] && cat $tmplog >> $log
         echo "${prog}: Trouble installing $prodname ${version}+${bn}" | tee -a $log
         echo "Disabling release..." | tee -a $log
+        bad=($prodname/$version+$bn ${bad[@]})
         [ -n "$bad" ] && unreleaseDependents "${bad[@]}"
         return 1
     }
@@ -449,7 +452,7 @@ function unreleaseDependents {
 
         rm -f $stagesrvr/manifests/$mfile
     done
-    synctostd -r manifests
+    [ -n "$testserver" ] || synctostd -r manifests
     synctoweb -r manifests
 }
 

@@ -1,6 +1,7 @@
 #! /bin/bash -
 #
 usehome=`dirname $0`
+usehome=`dirname $usehome`
 prog=`basename $0 | sed -e 's/-.*//'`
 user=UNSPECIFIED
 
@@ -34,9 +35,9 @@ args=()
 while getopts ":j:t:U:iDVCTnh" opt; do
   case $opt in 
     j)
-      args=($args -j "$OPTARG") ;;
+      args=(${args[*]} -j "$OPTARG") ;;
     t)
-      args=($args -t "$OPTARG") ;;
+      args=(${args[*]} -t "$OPTARG") ;;
     U)
       user=$OPTARG ;;
     h)
@@ -47,10 +48,10 @@ while getopts ":j:t:U:iDVCTnh" opt; do
       usage
       exit 1 ;;
     *) 
-      args=($args -$opt) ;;
+      args=(${args[*]} -$opt) ;;
   esac
 done
 shift $(($OPTIND - 1))
 
-echo $usehome/bin/submitRelease.sh -L -U $user ${args[*]} $*
+# echo $usehome/bin/submitRelease.sh -L -U $user ${args[*]} $*
 exec $usehome/bin/submitRelease.sh -L -U $user ${args[*]} $*

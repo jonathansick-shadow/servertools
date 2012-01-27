@@ -22,12 +22,13 @@ function help {
     echo "  -h          print this help and exit"
 }
 
-while getopts "b:h" opt; do
+rsyncremove=
+while getopts "b:rh" opt; do
   case $opt in 
     b)
       stackbase=$OPTARG ;;
     r)
-      rsyncremove=1
+      rsyncremove=1 ;;
     h)
       help
       exit 0 ;;

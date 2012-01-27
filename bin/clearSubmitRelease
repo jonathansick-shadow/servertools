@@ -5,4 +5,5 @@ exedir=`dirname $0`
 usehome=`dirname $exedir`
 usehome=`dirname $usehome`/current
 
-exec sudo -u $asuser $usehome/bin/clearSubmitRelease.sh $*
+# echo sudo -u $asuser $usehome/bin/clearSubmitRelease-safe.sh $*
+exec sudo -u $asuser $usehome/bin/clearSubmitRelease-safe.sh $*

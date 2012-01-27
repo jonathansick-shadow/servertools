@@ -6,7 +6,7 @@
 function rsyncToWebServer {
 
     local delete=
-    [ -n "rsyncremove" ] && delete="--delete"
+    [ -n "$rsyncremove" ] && delete="--delete"
     local subdir=
     [ -n "$1" ] && subdir=/$1
 
