@@ -199,6 +199,8 @@ class UpdateDependents(object):
         self.deployed = DeployedManifests(self.server.getManifestDir(), 
                                           self.vcmp)
         self.log = log
+        self.creator = None
+        self.submitter = None
 
     def updateFromTag(self, tag):
         tagfile = self.server.getTagListFile(tag)
@@ -316,6 +318,8 @@ class UpdateDependents(object):
         out = []
         for prod in self.upgblds:
             man = self.createUpgradedManifest(prod, self.upgrecs)
+            man.creator = self.creator
+            man.submitter = self.submitter
             fname = self.writeUpgradedManifest(man, prod, self.deps[prod], 
                                                self.upgblds[prod])
 

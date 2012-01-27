@@ -1,0 +1,47 @@
+#! /bin/bash
+#
+#
+# create a directory tree for serving packages.
+#
+# usage: mkdistserver [ server_dir ]
+#
+prog=`basename $0`
+[ -z "$DEVENV_SERVERTOOLS_DIR" ] && {
+    echo devenv_servertools product is not setup!
+    exit 2
+}
+source $DEVENV_SERVERTOOLS_DIR/lib/releaseFunction.sh
+
+function usage { 
+    echo "Usage: $0 [-h | server_dir]"
+}
+
+function help {
+    usage
+    cat <<EOF
+
+Create a directory that can be used as package distribution server using 
+the lssteups conventions.
+
+Options:
+  -h     print this help
+EOF
+}
+
+while getopts "h" opt; do
+  case $opt in 
+    h)
+      help
+      exit 0 ;;
+  esac
+done
+shift $(($OPTIND - 1))
+
+[ -z "$1" ] && {
+    echo ${prog}: missing directory path argument
+    exit 1
+}
+
+makeStageServer $1
+
+

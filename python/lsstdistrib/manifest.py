@@ -5,7 +5,7 @@ software stack.  The main functionality is provided via the Manifest class.
 from __future__ import absolute_import
 from __future__ import with_statement
 
-import sys, os, re, cStringIO
+import sys, os, re, cStringIO, time
 from subprocess import Popen, PIPE
 from copy import copy
 
@@ -49,6 +49,8 @@ class Manifest(object):
         self.colnames = copy(defaultColumnNames)
         self.colnames[0] = "# " + self.colnames[0]
         self.commcount = 0
+        self.creator = None
+        self.submitter = None
 
     def getNameVerFlav(self):
         """return the package name, version, and flavor as a 3-tuple"""
@@ -248,6 +250,13 @@ class Manifest(object):
         fmt = "%%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%s\n" % tuple(collen[:-1])
         
         strm.write(self.hdr % (self.name, self.vers))
+        if self.creator or self.submitter:
+            if self.creator:
+                strm.write("# Creator: %s\n" % self.creator)
+                if self.submitter:
+                    strm.write("# Submitter: %s\n" % self.submitter)
+            strm.write("# Time: %s\n" % 
+                       time.strftime("%Y/%m/%d %H:%M:%S %Z", time.localtime()))
         strm.write((fmt % tuple(self.colnames)))
         strm.write("#" + " ".join(map(lambda x: '-' * x, collen))[1:109])
         strm.write("\n")
@@ -752,7 +761,7 @@ class SortProducts(object):
     is done to be configured.
     """
 
-    def __init__(self, serverdir, products=None):
+    def __init__(self, serverdir, products=None, productInfoFunc=None):
         """
         initialize the class with the products to order:
         @param serverdir   the server root directory
@@ -761,22 +770,79 @@ class SortProducts(object):
         """
         self.serverdir = serverdir
         self.prods = {}
-        for prod in products:
-            self.addProduct(prod)
         self.tag = None
+        self.prodfunc = productInfoFunc
+        if products:
+            for prod in products:
+                self.addProduct(prod)
 
-    def addProduct(self, product):
+    def _addProductInfo(self, prodrep, prodname, version=None, 
+                        manifestFile=None):
+        self.prods[prodname] = (prodrep, version, manifestFile)
+
+    def addProduct(self, product, productInfoFunc=None, manifestFile=None):
         """
-        add a product to the list to sort.  The product can be one of:
+        add a product to the list to sort.  The product can be represented 
+        in any arbitrary but otherwise determinable way; productInfoFunc
+        is a function that converts the product representation into sequence
+        that provides the necessary information (see productInfoFunc 
+        description below).  If productInfoFunc is not provided, the function 
+        provided to this class at construction will be used.  If not such
+        function is available, then product must be one of:
           o  a string containing the product name
           o  a string containing the product name and version in in
                name/version format
           o  a two-element tuple giving the name and version
+          o  a three-element tuple giving the name, version, and a path to 
+               its manifest to use to determine its depenendencies.  
+        @param product          the representation of a product to add to the 
+                                  list to sort 
+        @param productInfoFunc  a function that will convert the product 
+                                  representation into a 2- or 3-element 
+                                  sequence where the first element is the 
+                                  product name and the second is the full 
+                                  version (including build number if 
+                                  applicable).  If a third element is included, 
+                                  it is a path to the manifest file which will 
+                                  be used to extract the dependencies; if not 
+                                  included, the manifest will be looked up via 
+                                  the serverdir.  If this function is not 
+                                  provided, the productList is assumed to be 
+                                  in this sequence format already.
+        @param manifestFile     the path to the product's manifest file 
+                                  listing its dependencies.  When provided,
+                                  this overrides the path returned by 
+                                  productInfoFunc.  If not provided, the 
+                                  manifest will be found (at sort time) among  
+                                  the deployed manifests on the server.    
+        @throws RuntimeError  if productInfoFunc does not return at least a 
+                                 two-element list or if the given manifest file
+                                 does not exist.
         """
+        if not productInfoFunc:
+            productInfoFunc = self.prodfunc
+        if not productInfoFunc:
+            productInfoFunc = self.defaultProductInfoFunction
+
+        prodinfo = productInfoFunc(product)
+        if len(prodinfo) < 2:
+            raise RuntimeError("product info function returns too few elements: %s" % prodinfo)
+        if len(prodinfo) < 3:
+            prodinfo.append(None)
+        if manifestFile:
+            if not os.path.exists(manifestFile):
+                raise RuntimeError("Manifest file does not exist: " + 
+                                   manifestFile)
+            prodinfo[2] = manifestFile
+        (name, vers, filen) = prodinfo[:3]
+        self._addProductInfo(product, name, vers, filen)
+
+    @classmethod
+    def defaultProductInfoFunction(product):
         if isinstance(product, str):
             product = map(lambda p: p.strip(), product.split('/', 1))
             if len(product) < 2: product.append(None)
-        self.prods[product[0]] =  product[1] 
+        return product
 
     def preferTag(self, tag):
         """
@@ -794,12 +860,41 @@ class SortProducts(object):
         @return a list of product-version two-tuples in order
         """
         bdeps = BuildDependencies(self.serverdir)
-        for prod, version in self.prods.items():
-            bdeps.mergeProduct(prod, version)
+        # set the preferred tag
+        for prod, (prodrep, version, manfile) in self.prods.items():
+            if manfile:
+                bdeps.mergeFromManifestFile(manfile)
+            else:
+                bdeps.mergeProduct(prod, version)
         deps = bdeps.getDeps()
 
         out = []
         for dep in deps:
             if dep.getName() in self.prods.keys():
-                out.append( (dep.getName(), self.prods[dep.getName()]) )
+                out.append( self.prods[dep.getName()][0] )
+        for prod in self.prods.keys():
+            # catch any pseudo packages
+            if self.prods[prod][0] not in out:
+                out.append( self.prods[prod][0] ) 
         return out
+
+def sortInDependencyOrder(productList, productInfoFunc=None, serverdir=None):
+    """
+    return a the elements in the given list of products sorted in 
+    dependency order in which each product does not depend on any products 
+    that follow it in the returned list.  
+    @param productList      the list of products in some format
+    @param productInfoFunc  a function that will convert one product in the list
+                              into a 2- or 3-element sequence where the first
+                              element is the product name and the second is the 
+                              full version (including build number if 
+                              applicable).  If a third element is included, it
+                              is a path to the manifest file which will be used
+                              to extract the dependencies; if not included,
+                              the manifest will be looked up via the serverdir.
+                              If this function is not provided, the productList
+                              is assumed to be in this sequence format already.
+    @param serverdir        the package server directory containing deployed
+                              manifests (i.e. under a manifests subdirectory)
+    """
+    return SortProducts(serverdir, productList, productInfoFunc).sort()

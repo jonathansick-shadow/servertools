@@ -24,7 +24,8 @@ startdir=$PWD
     echo "${prog}: devenv_servertools not setup"
     exit 1
 }
-libdir="$DEVENV_SERVERTOOLS_DIR/lib"
+prodhome=$DEVENV_SERVERTOOLS_DIR
+libdir="$prodhome/lib"
 reposExtractLib="$libdir/gitReposExtract.sh"     # default; override in conf
 releaseFunctionLib="$libdir/releaseFunction.sh"  # default; override in conf
 
@@ -68,7 +69,7 @@ Options:
 EOF
 }
 
-configfile=$DEVENV_SERVERTOOLS_DIR/conf/createRelease_conf.sh
+configfile=$prodhome/conf/createRelease_conf.sh
 usebuildthreads=4
 ignorefailedtests=
 testsHaveFailed=
@@ -178,6 +179,54 @@ log=$workdir/$prog.log
     exit 2
 }
 
+
+function onexit {
+    echo "Cleaning up..."
+    cd $startdir
+    [ -z "$noclean" ] && {
+        if [ -z "$userworkdir" ]; then
+            rm -rf $workdir
+        else
+            [ -d "$srvrdir" ] && { echo $srrvdir | grep -v "^$userworkdir" | grep -sq '.'$$'$'; } && {
+                rm -rf $srvrdir
+            }
+            [ -d "$sandbox" ] && { echo $sandbox | grep -sq '.'$$'$'; } && {
+                rm -rf $sandbox
+            }
+            [ -n "$tmpsrcdir" -a -d "$tmpsrcdir" ] && { 
+                echo $srcdir | grep -sq '.'$$'$'; } && {
+                rm -rf $srcdir
+            }
+        fi
+    } 
+}
+
+function interrupted {
+    onexit
+}
+
+trap "onexit" 0
+trap "interrupted" 1 2 3 13 15
+
+clearlsst
+source $refstack/loadLSST.sh
+{ pushd $prodhome >/dev/null && setup -r . && popd >/dev/null; }
+#pushd $HOME/git/lssteups >/dev/null && setup -r . && popd >/dev/null
+#set -x
+
+# make sure we have version without a build number and a build numer to use
+{ echo $version | grep -sq +; } && {
+    # strip off any build number but use it in lieu of -b
+    [ -z "$buildNum" ] && {
+        buildNum=`echo $version | sed -e 's/^.*+//'`
+        { echo $buildNum | grep -sqP '\d+'; } || buildNum=
+    }
+    version=`taggedVersion $version`
+}
+[ -z "$buildNum" ] && {
+    buildNum=`recommendBuildNumber $prodname $vers`
+}
+
 if [ -n "$manifestOnly" ]; then
     [ -z "$output" ] && output=$prodname-$version+$buildNum.manifest
 else
@@ -210,52 +259,6 @@ elif [ ! -d "$sandbox/ups_db" ]; then
     echo "Provided sandbox is not configured (no ups_db, use \"mksandbox\")"
     exit 2
 fi
-
-function onexit {
-    echo "Cleaning up..."
-    cd $startdir
-    [ -z "$noclean" ] && {
-        if [ -z "$userworkdir" ]; then
-            rm -rf $workdir
-        else
-            [ -d "$srvrdir" ] && { echo $srrvdir | grep -v "^$userworkdir" | grep -sq '.'$$'$'; } && {
-                rm -rf $srvrdir
-            }
-            [ -d "$sandbox" ] && { echo $sandbox | grep -sq '.'$$'$'; } && {
-                rm -rf $sandbox
-            }
-            [ -n "$tmpsrcdir" -a -d "$tmpsrcdir" ] && { 
-                echo $srcdir | grep -sq '.'$$'$'; } && {
-                rm -rf $srcdir
-            }
-        fi
-    } 
-}
-
-function interrupted {
-    onexit
-}
-
-trap "onexit" 0
-trap "interrupted" 1 2 3 13 15
-
-clearlsst
-source $refstack/loadLSST.sh
-#pushd $HOME/git/lssteups >/dev/null && setup -r . && popd >/dev/null
-#set -x
-
-# make sure we have version without a build number and a build numer to use
-{ echo $version | grep -sq +; } && {
-    # strip off any build number but use it in lieu of -b
-    [ -z "$buildNum" ] && {
-        buildNum=`echo $version | sed -e 's/^.*+//'`
-        { echo $buildNum | grep -sqP '\d+'; } || buildNum=
-    }
-    version=`taggedVersion $version`
-}
-[ -z "$buildNum" ] && {
-    buildNum=`recommendBuildNumber $prodname $vers`
-}
 
 cd $workdir
 

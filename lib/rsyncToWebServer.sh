@@ -5,8 +5,13 @@
 #
 function rsyncToWebServer {
 
-    echo rsync -avz --exclude=.git\* --exclude=\*~ $localServerMirror/ ${packageServerName}:$testPackageServerDir
-    rsync -avz --exclude=.git\* --exclude=\*~ $localServerMirror/ ${packageServerName}:$testPackageServerDir || return 1
+    local delete=
+    [ -n "rsyncremove" ] && delete="--delete"
+    local subdir=
+    [ -n "$1" ] && subdir=/$1
+
+    echo rsync -avz $delete --exclude=.git\* --exclude=\*~ $localServerMirror$subdir/ ${packageServerName}:$testPackageServerDir$subdir
+    rsync -avz $delete --exclude=.git\* --exclude=\*~ $localServerMirror$subdir/ ${packageServerName}:$testPackageServerDir$subdir || return 1
 
     return 0
 }

@@ -23,12 +23,14 @@ Clear the session lock for a particular product release.
 Options:
   -w       the parent work directory containing the session area
   -c FILE  the configuration file to use 
+  -v       show extra messages
   -h       print this help and exit
 EOF
 }
 
+verbose=0
 configfile=$DEVENV_SERVERTOOLS_DIR/conf/createRelease_conf.sh
-while getopts "w:c:h" opt; do
+while getopts "w:c:vh" opt; do
   case $opt in 
     c)
       configfile=$OPTARG 
@@ -39,6 +41,8 @@ while getopts "w:c:h" opt; do
       ;;
     w)
       workdir=$OPTARG ;;
+    v)
+      verbose=1 ;;
     h)
       help
       exit 0 ;;
@@ -64,6 +68,7 @@ shift $(($OPTIND - 1))
 prodname=$1; shift
 version=$1;  
 sessiondir="$workdir/$prodname-$version"
+[ "$verbose" -gt 0 ] && echo session dir: $sessiondir
 
 [ -e "$sessiondir" ] || {
     echo "${prog}: Session for $prodname $version done"

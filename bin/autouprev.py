@@ -1,9 +1,10 @@
 #! /usr/bin/env python
 #
 from __future__ import with_statement
-import sys, os, re, optparse, shutil
+import sys, os, re, optparse, shutil, pwd
 
 from lsstdistrib.release import UpdateDependents
+from lsstdistrib.manifest import SortProducts
 from lsstdistrib import version as onvers
 
 prog = os.path.basename(sys.argv[0])
@@ -13,7 +14,7 @@ if prog.endswith(".py"):
 usage = "%prog [ -h ] [-o FILE -u LIST -T TAG -rn ] [ -d DIR ] product ..."
 description = \
 """Create new manifest files for all dependents of the given products, up-reving them
-to use this products.  Normally, the products that are specified have been recently
+to use these products.  Normally, the products that are specified have been recently
 released.  
 """
 
@@ -56,6 +57,10 @@ def main():
         opts.nouprprods = tmp
 
     uprev = UpdateDependents(products, opts.serverdir, log=log)
+    if not opts.creator:
+        opts.creator = re.sub(r",.*", "", pwd.getpwuid(os.getuid())[4])
+    uprev.creator = opts.creator
+    uprev.submitter = opts.submitter
 
     # set the reference tags
     for i in xrange(len(opts.reftag)):
@@ -87,6 +92,8 @@ def main():
         ostrm = open(opts.outfile, 'w')
 
     if opts.outfile or opts.release or not opts.silent:
+        files = []
+        sorter = (not opts.noaction and SortProducts(opts.serverdir)) or None
         for prod in updated:
             if opts.release:
                 writtenfile = "%s-%s+%s.manifest" % (prod[0],prod[1],prod[2])
@@ -95,17 +102,47 @@ def main():
                 if not opts.noaction:
                     # print "cp", prod[3], deployedpath
                     shutil.copyfile(prod[3], prodpath)
+
+                if sorter:
+                    sorter.addProduct(writtenfile, 
+                                      parseDeployedManifestFilename, prodpath)
+
             else:
-                writtenfile = prod[3]
+                prodpath = prod[3]
+                writtenfile = prodpath
                 if writtenfile.startswith(opts.serverdir + '/'):
                     writtenfile = writtenfile[len(opts.serverdir)+1:]
+                if sorter:
+                    sorter.addProduct(writtenfile, 
+                                      parseUnDeployedManifestFilename, prodpath)
 
+            files.append(writtenfile)
+
+        if not opts.noaction:
+            files = sorter.sort()
+
+        for writtenfile in files:
             print >> ostrm, writtenfile
             if opts.outfile and opts.verbose:
                 print writtenfile
 
     if opts.outfile:
         ostrm.close()
+
+def parseDeployedManifestFilename(filename):
+    filename = os.path.splitext(os.path.basename(filename))[0]
+    info = filename.split('-', 1)
+    info.append(filename)
+    return info
+
+def parseUnDeployedManifestFilename(filename):
+    path = os.path.splitext(filename)[0]
+    bext = os.path.basename(path)[0]
+    path = os.path.dirname(path)
+    basever = os.path.basename(path)
+    path = os.path.dirname(path)
+    name = os.path.basename(path)
+    return [name, "%s+%s" % (basever, bext), filename]
 
 def parseProduct(prodpath):
     fields = prodpath.split('/')
@@ -144,8 +181,10 @@ def loadconfig():
     cl = setopts()
     (opts, args) = cl.parse_args()
 
-    if not opts.serverdir and config.serverdir:
+    if not opts.serverdir and getattr(config, 'serverdir', None):
         opts.serverdir = config.serverdir
+    if not opts.creator and getattr(config, 'creator', None):
+        opts.creator = config.creator
 
     return (opts, args)
 
@@ -177,6 +216,12 @@ def setopts():
     parser.add_option("-n", "--noaction", action="store_true", default=False,
                       dest="noaction", 
                       help="do not actually write any files; just print the names that would be written")
+    parser.add_option("--submitter", action="store", metavar="NAME", 
+                      dest="submitter",
+                    help="record NAME as the submitter into the manifests")
+    parser.add_option("--creator", action="store", metavar="NAME", 
+                      dest="creator",
+                    help="record NAME as the creator into the manifests")
 
     return parser
 

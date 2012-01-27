@@ -11,13 +11,14 @@ libdir="$DEVENV_SERVERTOOLS_DIR/lib"
 . $DEVENV_SERVERTOOLS_DIR/lib/rsyncToWebServer.sh
 
 function usage {
-    echo Usage: `basename $0` "[-b DIR -h]"
+    echo Usage: `basename $0` "[-b DIR -h] [subdir]"
 }
 
 function help {
     usage
     echo "Options:"
     echo "  -b DIR      the base directory for the release-related directories"
+    echo "  -r          when syncing, remove remote files not found locally"
     echo "  -h          print this help and exit"
 }
 
@@ -25,6 +26,8 @@ while getopts "b:h" opt; do
   case $opt in 
     b)
       stackbase=$OPTARG ;;
+    r)
+      rsyncremove=1
     h)
       help
       exit 0 ;;
@@ -32,4 +35,4 @@ while getopts "b:h" opt; do
 done
 shift $(($OPTIND - 1))
 
-rsyncToWebServer
+rsyncToWebServer $1

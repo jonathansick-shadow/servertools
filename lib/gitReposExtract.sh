@@ -7,7 +7,7 @@
 function reposExtract {
     local prodname=$1 taggedas=$2 proddir=$3
     local reposname=$prodname
-    local reposroot=$LSST_DMS
+    local reposroot=git://git.lsstcorp.org/LSST/DMS
     if [ "$1" = "lssteups" ]; then
         reposname=devenv/lssteups
     elif [ "$1" = "lsst" ]; then

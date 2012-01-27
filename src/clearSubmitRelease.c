@@ -1,6 +1,4 @@
 #include <unistd.h>
-#include <sys/types.h>
-#include <pwd.h>
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
@@ -19,7 +17,7 @@ const char *userenv = "USER=lsstsw";
 const char *shenv   = "SHELL=bash";
 const char *stvar   = "DEVENV_SERVERTOOLS_DIR";
 const char *sthome  = DST_INSTALL_DIR_QUOTED;
-const char *srscrp  = "bin/submitRelease.sh";
+const char *srscrp  = "bin/clearSubmitRelease.sh";
 
 int main(int argc, char *argv[]) {
     int i=0;
@@ -41,19 +39,13 @@ int main(int argc, char *argv[]) {
     strcat(environ[3], sthome);
     environ[4] = NULL;
 
-    cmd = malloc( (argc+4) * sizeof(char*) );
+    cmd = malloc( (argc+2) * sizeof(char*) );
     cmd[0] = argv[0];
     cmd[1] = strdup(srpath);
-    cmd[2] = strdup("-U");
-    cmd[3] = strdup(strdup(getpwuid(getuid())->pw_name));
     for(i=1; i < argc; i++) 
-        cmd[i+3] = argv[i];
-    cmd[i+3] = NULL;
+        cmd[i+1] = argv[i];
+    cmd[i+1] = NULL;
 
-    /*
-    printf("Real/Eff. User: %i/%i\n", getuid(), geteuid());
-    sleep(10);
-    */
     execve("/bin/bash", cmd, environ);
     printf("%s: exec failed: %s\n", argv[0], strerror(errno));
 }

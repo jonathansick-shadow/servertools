@@ -5,11 +5,18 @@
 #
 function rsyncToStdWebServer {
 
-    echo rsync -avz --exclude=.git\* --exclude=/newinstall.sh --exclude=\*~ $localServerMirror/ ${packageServerName}:$testPackageServerDir
-    rsync -avz --exclude=.git\* --exclude=/newinstall.sh --exclude=\*~ $localServerMirror/ ${packageServerName}:$testPackageServerDir || return 1
+    local delete=
+    [ -n "rsyncremove" ] && delete="--delete"
+    local subdir=
+    [ -n "$1" ] && subdir=/$1
 
-    echo ssh $packageServerName \"cd $testPackageServerDir\; sed -e \'/EUPS distribution/ s/current/stable/\' current.list \> stable.list\"
-    ssh $packageServerName "cd $testPackageServerDir; sed -e '/EUPS distribution/ s/current/stable/' current.list > stable.list" || return 2
+    echo rsync -avz $delete --exclude=.git\* --exclude=/newinstall.sh --exclude=\*~ $localServerMirror$subdir/ ${packageServerName}:$testPackageServerDir$subdir
+    rsync -avz $delete --exclude=.git\* --exclude=/newinstall.sh --exclude=\*~ $localServerMirror$subdir/ ${packageServerName}:$testPackageServerDir$subdir || return 1
+
+    [ -z "$subdir" ] && {
+        echo ssh $packageServerName \"cd $testPackageServerDir\; sed -e \'/EUPS distribution/ s/current/stable/\' current.list \> stable.list\"
+        ssh $packageServerName "cd $testPackageServerDir; sed -e '/EUPS distribution/ s/current/stable/' current.list > stable.list" || return 2
+    }
 
     return 0
 }

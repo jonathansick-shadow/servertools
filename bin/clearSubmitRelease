@@ -1,0 +1,8 @@
+#! /bin/bash -
+#
+asuser=lsstsw
+exedir=`dirname $0`
+usehome=`dirname $exedir`
+usehome=`dirname $usehome`/current
+
+exec sudo -u $asuser $usehome/bin/clearSubmitRelease.sh $*
