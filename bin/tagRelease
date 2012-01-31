@@ -1,0 +1,9 @@
+#! /bin/bash -
+#
+asuser=lsstsw
+exedir=`dirname $0`
+usehome=`dirname $exedir`
+usehome=`dirname $usehome`/current
+
+# echo sudo -u $asuser $usehome/bin/tagRelease-safe.sh -U $USER $*
+exec sudo -u $asuser $usehome/bin/tagRelease-safe.sh -U $USER $*
