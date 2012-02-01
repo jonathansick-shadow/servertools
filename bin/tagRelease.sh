@@ -22,10 +22,12 @@ prodhome=$DEVENV_SERVERTOOLS_DIR
     prodhome=`dirname $prodhome`; [ -z "$prodhome" ] && failrecon
 }
 
+libdir="$prodhome/lib"
 configfile="$prodhome/conf/submitRelease_conf.sh"
+releaseFunctionLib="$libdir/releaseFunction.sh"
 
 function usage {
-    echo Usage: ${prog}: "-t TAG[,TAG] [-U USER -Ln] product-version ..."
+    echo Usage: ${prog}: "-t TAG[,TAG] [-U USER -Ln] product version ..."
 }
 
 function help {
@@ -33,13 +35,16 @@ function help {
     echo <<EOF
 Assign one or more server tags to one or more distributions.  The -D option 
 (identifying the server directory) and at least one -t occurance (to name
-the tag to assign is required.  Note that products are identified with a 
-name-version format.  The stable tag is not assignable with this command.
+the tag to assign is required.  The stable tag is not assignable with this 
+command. 
 
 Options:
   -t TAG[,TAG...]   server tag to assign to the given list of products
+
+  -D                do not tag the products' dependents"
   -c FILE           the configuration file to use
   -w DIR            a 'work' directory to use for private scratch (def: /tmp)
+  -T                deploy to test server only"
   -U USER           identify the user running this command
   -L                log the tagging in the configured area
 EOF
@@ -48,8 +53,10 @@ EOF
 tags=()
 noclean=
 dolog=
+testserver=
+nodepuprev=
 
-while getopts "t:w:c:nh" opt; do
+while getopts "t:w:c:TDnh" opt; do
   case $opt in 
     c)
       configfile=$OPTARG 
@@ -65,8 +72,12 @@ while getopts "t:w:c:nh" opt; do
       workdir=$OPTARG ;;
     n)
       noclean=1 ;;
+    D)
+      nodepuprev=1 ;;
     L)
       dolog=1 ;;
+    T)
+      testserver=1 ;;
     U)
       asuser=$OPTARG ;;
     h)
@@ -79,13 +90,49 @@ shift $(($OPTIND - 1))
 
 [ -e "$configfile" ] && \
     . $configfile
+[ -e "$releaseFunctionLib" ] || {
+    echo "${prog}:  releaseFunction library does not exist: $releaseFunctionLib"
+    exit 1
+}
+. $releaseFunctionLib
+[ ${#tags[@]} -eq 0 ] && {
+    echo ${prog}: No tags specified
+    exit 1
+}
+[ $# -eq 0 ] && {
+    echo ${prog}: No products listed
+    exit 1
+}
+products=()
+prodname=
+for prod in $*; do 
+    if [ -n "$prodname" ]; then
+        echo $prod | egrep -sq '^[0-9]' || {
+            echo ${prog}: product syntax error: $prod does not look like a version for product $prodname
+            exit 1
+        }
+        products=(${products[*]} ${prodname}-$prod)
+        prodname=
+    else
+        if { echo $prod | grep -qse -; }; then
+            products=(${products[*]} $prod)
+        else
+            prodname=$prod
+        fi
+    fi
+done
+[ -n "$prodname" ] && {
+    echo ${prog}: Missing product version for $prodname
+    exit 1
+}
+
 sessiondir="$workdir/$prog.$$"
 mkdir $sessiondir
 
 noclean=
 
 function onexit {
-    if [ -z "$noclean" -a -n "$sessiondir" -a -d "$sessiondir" ] && {
+    [ -z "$noclean" -a -n "$sessiondir" -a -d "$sessiondir" ] && {
         rm -rf $sessiondir
     }
 }
@@ -128,14 +175,14 @@ done
 
 # check that all of the products exist
 bad=()
-for prod in $*; do
-    [ -e "$stagesrvr/manifests/$prod.manifest" ] && bad=(${bad[*]} $prod)
+for prod in ${products[*]}; do
+    [ -e "$stagesrvr/manifests/$prod.manifest" ] || bad=(${bad[*]} $prod)
 done
 [ ${#bad[*]} -gt 0 ] && {
     echo "${prog}: Unreleased products:" ${bad[*]} | tee -a $log
     exit 4
 }
-for prod in $*; do
+for prod in ${products[*]}; do
     name=`echo $prod | sed -e 's/-.*$//'`
     [ -d "$stagesrvr/name" -o -d "$stagesrvr/pseudo/$name" ] && {
         bad=(${bad[*]} $name)
@@ -145,6 +192,33 @@ done
     echo "${prog}: Non-lsst products:" ${bad[*]} | tee -a $log
     exit 4
 }
+
+# add in dependents
+[ -z "$nodepuprev" ] && {
+    specified=(${products[*]})
+    for prod in ${specified[*]}; do
+        pv=(`echo $prod | sed -e 's/-/ /'`)
+        deps=(`grep "^${pv[0]}" $stagesrvr/manifests/*.manifest | grep ${pv[1]} | sed -e 's/:.*//' -e 's/.manifest$//' -e 's/^.*\///'`)
+        for dep in ${deps[*]}; do
+            echo ${products[*]} | grep -sq $dep || {
+                products=(${products[*]} $dep)
+            }
+        done
+    done
+}
+[ -n "$dolog" ] && {
+    echo -n Tagging these products >> $log
+    [ -z "$nodepuprev" ] && echo -n " (with dependencies)" >> $log
+    echo ":" >> $log
+    echo -n "  " >> $log
+    echo ${products[*]} | sed -e 's/ /\n  /g' >> $log
+}
+    echo -n Tagging these products
+    [ -z "$nodepuprev" ] && echo -n " (with dependencies)"
+    echo ":"
+    echo -n "  "
+    echo ${products[*]} | sed -e 's/ /\n  /g'
+exit 0
 
 
 for tag in $tags; do
@@ -157,7 +231,7 @@ for tag in $tags; do
     }
     tagfile=$sessiondir/$tag.list
 
-    for prod in $*; do
+    for prod in ${products[*]}; do
         pv=(`echo $prod | sed -e 's/-/ /'`)
         echo tagRelease.py -d $sessiondir ${pv[*]} $tag | tee -a $log
         tmplog=$sessiondir/tagRelease-py.log

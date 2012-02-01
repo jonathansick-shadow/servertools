@@ -14,6 +14,8 @@ function reposExtract {
         reposname=devenv/lsst
     elif [ "$prodname" = "sconsUtils" ]; then
         reposname=devenv/sconsUtils
+    elif [ "$prodname" = "devenv_servertools" ]; then
+        reposname=devenv/servertools
     else
         reposname=$prodname
     fi
