@@ -161,7 +161,7 @@ source $refstack/loadLSST.sh
 
 # check that all tags exist
 bad=()
-for tag in $tags; do
+for tag in ${tags[*]}; do
     [ "$tag" = "stable" ] && {
         echo "${prog}: $tag tag not assignable with this command." | tee -a $log
         exit 2
@@ -217,7 +217,7 @@ done
 }
 
 # now update the tags
-for tag in $tags; do
+for tag in ${tags[*]}; do
     # to make this command atomic (and rollback-able) copy the tag file to 
     # a work area and operate on it there.
     tagfile=$stagesrvr/$tag.list
@@ -257,8 +257,11 @@ echo Server tags assigned.
 # update the tags in the reference stack
 echo Updating tags in reference stack | tee -a $log
 for prod in ${products[*]}; do
-    echo eups declare -c `echo $prod | sed -e 's/-/ /'` | tee -a $log
-    eups declare -c `echo $prod | sed -e 's/-/ /'` 
+    tagarg=
+    for tag in ${tags[*]}; do
+        tagarg="$tagarg -t $tag"
+    echo eups declare $tagarg `echo $prod | sed -e 's/-/ /'` | tee -a $log
+    eups declare $tagarg `echo $prod | sed -e 's/-/ /'` 
 done
 
 
