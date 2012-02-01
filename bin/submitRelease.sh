@@ -211,7 +211,7 @@ function deployToStageServer {
     pushd $createpkgs > /dev/null
 
     # update the header of the manifest to identify who submitted it
-    local manifest=$prodname/$version/b1.manifest
+    local manifest=$prodname/$version/b${bn}.manifest
     local now=`date`
     local ins=`printf "# Submitter:    %s\n# Date:         %s\n#" $asuser "$now"`
     echo sed -e "/^# pkg/ i\\$ins" $manifest \> $manifest.upd >> $log
@@ -394,7 +394,7 @@ function updateRefStack {
     EUPS_PATH=$refstack
     [ -n "$usebuildthreads" ] && { 
         export SCONSFLAGS="-j $usebuildthreads"
-        echo SCONSFLAGS=$SCONSFLAGS
+        echo SCONSFLAGS=$SCONSFLAGS | tee -a $log
     }
 
     bad=()
@@ -496,7 +496,7 @@ tarrootdir=`productDirName $prodname $version`
     [ -n "$logdir" ] || logdir=$workdir/logs
     log=$logdir/`date '+%Y-%m-%dT%H:%M:%S'`_$prodname-$version.log
 
-    echo $prog ${origargs[*]} > $log
+    echo $prog ${origarg[*]} > $log
     echo LSST_HOME=$LSST_HOME >> $log
     echo EUPS_PATH=$EUPS_PATH >> $log
     echo EUPS_PKGROOT=$EUPS_PKGROOT >> $log
