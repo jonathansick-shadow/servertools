@@ -260,6 +260,7 @@ for prod in ${products[*]}; do
     tagarg=
     for tag in ${tags[*]}; do
         tagarg="$tagarg -t $tag"
+    done
     echo eups declare $tagarg `echo $prod | sed -e 's/-/ /'` | tee -a $log
     eups declare $tagarg `echo $prod | sed -e 's/-/ /'` 
 done
