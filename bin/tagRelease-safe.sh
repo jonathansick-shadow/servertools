@@ -26,7 +26,7 @@ EOF
 
 args=()
 tags=()
-while getopts ":t:Dnh" opt; do
+while getopts ":t:U:Dnh" opt; do
   case $opt in 
     t)
       args=(${args[*]} -t "$OPTARG") ;;
