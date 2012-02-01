@@ -252,6 +252,13 @@ synctoweb || syncerr=6
     echo ${prog}: Sync with server failed | tee -a $log
     exit $syncerr
 }
+echo Server tags assigned.
 
-echo products tagged.
+# update the tags in the reference stack
+echo Updating tags in reference stack | tee -a $log
+for prod in ${products[*]}; do
+    echo eups declare -c `echo $prod | sed -e 's/-/ /'` | tee -a $log
+    eups declare -c `echo $prod | sed -e 's/-/ /'` 
+done
+
 
