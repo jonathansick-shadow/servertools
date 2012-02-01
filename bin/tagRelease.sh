@@ -56,7 +56,9 @@ dolog=
 testserver=
 nodepuprev=
 
-while getopts "t:w:c:TDnh" opt; do
+origargs=($*)
+
+while getopts ":t:w:c:U:LTDnh" opt; do
   case $opt in 
     c)
       configfile=$OPTARG 
@@ -83,9 +85,11 @@ while getopts "t:w:c:TDnh" opt; do
     h)
       help
       exit 0 ;;
+    '?')
+      echo ${prog}: illegal option -- $OPTARG
+      exit 1 ;;
   esac
 done
-origarg=($*)
 shift $(($OPTIND - 1))
 
 [ -e "$configfile" ] && \
@@ -128,8 +132,6 @@ done
 
 sessiondir="$workdir/$prog.$$"
 mkdir $sessiondir
-
-noclean=
 
 function onexit {
     [ -z "$noclean" -a -n "$sessiondir" -a -d "$sessiondir" ] && {
@@ -198,7 +200,7 @@ done
     specified=(${products[*]})
     for prod in ${specified[*]}; do
         pv=(`echo $prod | sed -e 's/-/ /'`)
-        deps=(`grep "^${pv[0]}" $stagesrvr/manifests/*.manifest | grep ${pv[1]} | sed -e 's/:.*//' -e 's/.manifest$//' -e 's/^.*\///'`)
+        deps=(`grep "^${pv[0]}" $stagesrvr/manifests/*.manifest | grep ${pv[1]} | sed -e 's/:.*//' -e 's/.manifest$//' -e 's/^.*\///' | grep '+'`)
         for dep in ${deps[*]}; do
             echo ${products[*]} | grep -sq $dep || {
                 products=(${products[*]} $dep)
@@ -213,14 +215,8 @@ done
     echo -n "  " >> $log
     echo ${products[*]} | sed -e 's/ /\n  /g' >> $log
 }
-    echo -n Tagging these products
-    [ -z "$nodepuprev" ] && echo -n " (with dependencies)"
-    echo ":"
-    echo -n "  "
-    echo ${products[*]} | sed -e 's/ /\n  /g'
-exit 0
 
-
+# now update the tags
 for tag in $tags; do
     # to make this command atomic (and rollback-able) copy the tag file to 
     # a work area and operate on it there.
@@ -233,7 +229,7 @@ for tag in $tags; do
 
     for prod in ${products[*]}; do
         pv=(`echo $prod | sed -e 's/-/ /'`)
-        echo tagRelease.py -d $sessiondir ${pv[*]} $tag | tee -a $log
+        echo tagRelease.py -d $sessiondir ${pv[*]} $tag >> $log
         tmplog=$sessiondir/tagRelease-py.log
         tagRelease.py -d $sessiondir ${pv[*]} $tag > $tmplog 2>&1 || {
             cat $tmplog
@@ -243,11 +239,19 @@ for tag in $tags; do
     done
 
     # copy them back to the server
-    cp $tagfile $serverdir || { 
+    cp $tagfile $stagesrvr || { 
         echo Failed to commit $tag.list
         exit 5
     }
 done
+
+syncerr=
+# [ -n "$testserver" ] || synctostd || syncerr=6
+# synctoweb || syncerr=6
+[ -n "$syncerr" ] && {
+    echo ${prog}: Sync with server failed | tee -a $log
+    exit $syncerr
+}
 
 echo products tagged.
 

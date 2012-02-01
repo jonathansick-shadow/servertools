@@ -6,7 +6,7 @@ prog=`basename $0 | sed -e 's/-.*//'`
 user=UNSPECIFIED
 
 function usage {
-    echo Usage: ${prog}: "-t TAG[,TAG] [-nh] product-version ..."
+    echo Usage: ${prog}: "-t TAG[,TAG] [-nh] product version ..."
 }
 
 function help {
@@ -19,15 +19,17 @@ name-version format.  The stable tag is not assignable with this command.
 
 Options:
   -t TAG[,TAG...]   server tag to assign to the given list of products
+  -D                do not tag the products' dependents
   -n                do not clean up the work area before exiting
 EOF
 }
 
-while getopts "t:nh" opt; do
+args=()
+tags=()
+while getopts ":t:Dnh" opt; do
   case $opt in 
     t)
-      tags=($tags `echo $OPTARG | sed -e 's/,/ /g'`)
-      ;;
+      args=(${args[*]} -t "$OPTARG") ;;
     U)
       user=$OPTARG ;;
     h)
