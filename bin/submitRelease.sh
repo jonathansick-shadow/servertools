@@ -429,7 +429,7 @@ function updateRefStack {
         eups distrib install --nolocks $pname ${vers} || {
             echo "${prog}: Dependent $prodname ${version}+1 failed to install" | tee -a $log
             echo "Unreleasing $prodname ${version}+1..." 
-            bad=($bad[*] $pname/$vers)
+            bad=(${bad[*]} $pname/$vers)
             unreleaseDependents $pname/$vers
         }
     done
