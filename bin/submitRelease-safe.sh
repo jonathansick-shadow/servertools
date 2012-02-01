@@ -6,7 +6,7 @@ prog=`basename $0 | sed -e 's/-.*//'`
 user=UNSPECIFIED
 
 function usage {
-    echo Usage: $prog "[-j NUM -t TAGS -iCnVh]" product version "[manifest]"
+    echo Usage: $prog "[-j NUM -t TAGS -iRCnVh]" product version "[manifest]"
 }
 
 function help {
@@ -32,7 +32,7 @@ function help {
 }
 
 args=()
-while getopts ":j:t:U:iDVCTnh" opt; do
+while getopts ":j:t:U:iRDVCTnh" opt; do
   case $opt in 
     j)
       args=(${args[*]} -j "$OPTARG") ;;
