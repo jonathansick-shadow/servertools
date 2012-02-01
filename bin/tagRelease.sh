@@ -246,8 +246,8 @@ for tag in $tags; do
 done
 
 syncerr=
-# [ -n "$testserver" ] || synctostd || syncerr=6
-# synctoweb || syncerr=6
+[ -n "$testserver" ] || synctostd || syncerr=6
+synctoweb || syncerr=6
 [ -n "$syncerr" ] && {
     echo ${prog}: Sync with server failed | tee -a $log
     exit $syncerr
