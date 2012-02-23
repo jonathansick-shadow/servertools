@@ -59,13 +59,25 @@ class VersionCompare(object):
         parts2 = self.fieldDelimRe.split(v2)
 
         while len(parts1) > 0 and len(parts2) > 0:
-            comp = cmp(parts1[0], parts2[0])
+            comp = self._fldCompare(parts1[0], parts2[0])
             if comp != 0:
                 return comp
             parts1.pop(0)
             parts2.pop(0)
 
         return 0
+
+    def _fldCompare(self, f1, f2):
+        # compare two version fields.  Normally these should be integers;
+        # if so, compare them numerically.  If one is an integer and the 
+        # other is not, consider the integer as the lesser.  If neither 
+        # are integers, compare them lexically.
+        try:
+            f1 = int(f1)
+            f2 = int(f2)
+        except ValueError:
+            pass
+        return cmp(f1, f2)
 
     def __call__(self, v1, v2):
         return self.compare(v1, v2)

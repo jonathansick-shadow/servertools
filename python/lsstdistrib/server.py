@@ -16,7 +16,7 @@ class Repository(object):
     pseudoDirName = "pseudo"
     manifestDirName = "manifests"
     externalDirName = "external"
-    undeployedManifestFileRe = re.compile(r'^b(\d+)' + manifest.extension)
+    undeployedManifestFileRe = re.compile(r'^b(\d+)' + manifest.extension + '$')
 
     def __init__(self, rootdir):
         self.root = rootdir
@@ -85,7 +85,7 @@ class Repository(object):
         for filenm in os.listdir(pdir):
             mat = self.undeployedManifestFileRe.match(filenm)
             if mat:
-                files.append((filenm, mat.group(1)))
+                files.append((filenm, int(mat.group(1))))
 
         files.sort(lambda f1, f2: cmp(f1[1], f2[1]))
         return files

@@ -401,6 +401,8 @@ class UpdateDependents(object):
                     dman = self.deployed.getManifest(pname, dver)
                     if dman:
                         rec = dman.getSelf()
+                        if not rec:
+                            raise RuntimeError("Manifest for %s %s is missing its self record" % (pname, dver))
                         upgradedRecords[pname] = rec
                     newman.addRecord(*rec)
                 else:
