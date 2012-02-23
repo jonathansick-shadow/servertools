@@ -7,6 +7,7 @@
 #
 SHELL=/bin/bash
 prog=`basename $0 | sed -e 's/\..*$//'`
+defrefstack=/lsst/DC3/stacks/default
 workdir=/tmp
 stagesrvr=/lsst/DC3/distrib/w12/www
 log=/dev/null
@@ -58,7 +59,7 @@ nodepuprev=
 
 origargs=($*)
 
-while getopts ":t:w:c:U:LTDnh" opt; do
+while getopts ":t:w:r:c:U:LTDnh" opt; do
   case $opt in 
     c)
       configfile=$OPTARG 
@@ -67,6 +68,8 @@ while getopts ":t:w:c:U:LTDnh" opt; do
           exit 1
       }
       ;;
+    r)
+      refstack=$OPTARG ;;
     t)
       tags=($tags `echo $OPTARG | sed -e 's/,/ /g'`)
       ;;
@@ -107,6 +110,19 @@ shift $(($OPTIND - 1))
     echo ${prog}: No products listed
     exit 1
 }
+[ -z "$refstack" ] && refstack=$defrefstack
+{ echo $refstack | grep -qsE '^/'; } || refstack=$PWD/$refstack
+{ echo $workdir  | grep -qsE '^/'; } || workdir=$PWD/$workdir
+
+[ -d "$refstack" ] || {
+    echo "Reference stack directory not found: $refstack"
+    exit 2
+}
+[ -d "$workdir" ] || {
+    echo "Reference stack directory not found: $workdir"
+    exit 2
+}
+
 products=()
 prodname=
 for prod in $*; do 

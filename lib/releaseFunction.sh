@@ -79,11 +79,25 @@ function buildProduct {
     scons $sconsopts opt=3 version=$vers >> $buildlog 2>&1 && buildok=1
     if [ -n "$buildok" ]; then
         mkdir -p "tests/.tests"
+
+        # double ensure the tests
+        failed=(`listFailedTests tests/.tests`)
+        [ ${#failed[*]} -gt 0 ] && {
+            echo "found some failed tests; rerunning" >> $buildlog
+            echo scons opt=3 version=$vers tests | tee -a $buildlog
+            scons opt=3 version=$vers tests >> $buildlog 2>&1 
+        }
     else
         tail -40 $buildlog
         echo "$prog: Product build failed; see $PWD/$buildlog for details"
         return 4
     fi
+    return 0
+}
+
+function listFailedTests {
+    local indir=$1
+    (cd $indir && ls *.failed 2> /dev/null)
 }
 
 ##
@@ -99,7 +113,8 @@ function checkTests {
         echo "Note: Apparently no tests were provided"
         return 0
     }
-    failed=(`ls *.failed 2> /dev/null`)
+    # failed=(`ls *.failed 2> /dev/null`)
+    failed=(`listFailedTests .`)
     [ ${#failed[@]} -gt 0 ] && {
         howmany="${#failed[@]} test"
         [ ${#failed[@]} -gt 1 ] && howmany="${howmany}s"

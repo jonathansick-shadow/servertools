@@ -7,7 +7,7 @@
 # users would invoke this via a wrapper script (submitrelease)
 #
 SHELL=/bin/bash
-refstack=/lsst/DC3/stacks/default
+defrefstack=/lsst/DC3/stacks/default
 workdir=/lsst/DC3/distrib/default/submitRelease
 stagesrvr=/lsst/DC3/distrib/w12/www
 startdir=$PWD
@@ -74,6 +74,7 @@ allowRerelease=
 nocommit=
 nodepuprev=
 isrerelease=
+refstack=
 
 while getopts "c:j:r:w:t:U:iDRVCTLnh" opt; do
   case $opt in 
@@ -147,6 +148,7 @@ shift $(($OPTIND - 1))
 }
 DEVENV_SERVERTOOLS_DIR=$prodhome . $copyPackageLib
 
+[ -z "$refstack" ] && refstack=$defrefstack
 { echo $refstack | grep -qsE '^/'; } || refstack=$PWD/$refstack
 { echo $workdir  | grep -qsE '^/'; } || workdir=$PWD/$workdir
 
@@ -477,6 +479,7 @@ function interrupted {
 trap "onexit" 0
 trap "interrupted" 1 2 3 13 15
 clearlsst
+echo Reference Stack: $refstack | tee -a $log
 source $refstack/loadLSST.sh
 # setup devenv_servertools
 { pushd $prodhome >/dev/null && setup -r . && popd >/dev/null; }
