@@ -10,18 +10,18 @@ function rsyncToStdWebServer {
     local subdir=
     [ -n "$1" ] && subdir=/$1
 
-    echo rsync -avz $delete --exclude=.git\* --exclude=/newinstall.sh --exclude=\*~ $localServerMirror$subdir/ ${packageServerName}:$testPackageServerDir$subdir
-    rsync -avz $delete --exclude=.git\* --exclude=/newinstall.sh --exclude=\*~ $localServerMirror$subdir/ ${packageServerName}:$testPackageServerDir$subdir || return 1
+    echo rsync -avz $delete --exclude=.git\* --exclude=/newinstall.sh --exclude=\*~ $localServerMirror$subdir/ $testPackageServerDir$subdir
+    rsync -avz $delete --exclude=.git\* --exclude=/newinstall.sh --exclude=\*~ $localServerMirror$subdir/ $testPackageServerDir$subdir || return 1
 
     [ -z "$subdir" ] && {
-        echo ssh $packageServerName \"cd $testPackageServerDir\; sed -e \'/EUPS distribution/ s/current/stable/\' current.list \> stable.list\"
-        ssh $packageServerName "cd $testPackageServerDir; sed -e '/EUPS distribution/ s/current/stable/' current.list > stable.list" || return 2
+        echo cd $testPackageServerDir && sed -e \'/EUPS distribution/ s/current/stable/\' current.list \> stable.list
+        cd $testPackageServerDir && sed -e '/EUPS distribution/ s/current/stable/' current.list > stable.list || return 2
     }
 
     return 0
 }
 
-packageServerName=dev.lsstcorp.org
-testPackageServerPath=pkgs/std/w12
-testPackageServerDir=softstack/$testPackageServerPath
+packageServerName=sw.lsstcorp.org/pkgs
+testPackageServerPath=std/w12
+testPackageServerDir=/lsst/DC3/distrib/servers/$testPackageServerPath
 localServerMirror=$stackbase/www
