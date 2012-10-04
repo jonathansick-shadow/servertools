@@ -14,7 +14,7 @@ function rsyncToStdWebServer {
     rsync -avz $delete --exclude=.git\* --exclude=/newinstall.sh --exclude=\*~ $localServerMirror$subdir/ $testPackageServerDir$subdir || return 1
 
     [ -z "$subdir" ] && {
-        echo cd $testPackageServerDir && sed -e \'/EUPS distribution/ s/current/stable/\' current.list \> stable.list
+        echo "cd $testPackageServerDir && sed -e \'/EUPS distribution/ s/current/stable/\' current.list \> stable.list"
         cd $testPackageServerDir && sed -e '/EUPS distribution/ s/current/stable/' current.list > stable.list || return 2
     }
 
