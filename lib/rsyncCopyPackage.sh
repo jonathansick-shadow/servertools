@@ -28,8 +28,8 @@ function copyPackage {
         $tagReleaseCmd -d $localServerMirror $prodname $version $2 || return 4
     }
 
-    echo rsync -avz --exclude=.git\* --exclude=\*~ $localServerMirror/ ${packageServerName}:$testPackageServerDir
-    rsync -avz --exclude=.git\* --exclude=\*~ $localServerMirror/ ${packageServerName}:$testPackageServerDir || return 5
+    echo rsync -avz --exclude=.git\* --exclude=\*~ $localServerMirror/ $testPackageServerDir
+    rsync -avz --exclude=.git\* --exclude=\*~ $localServerMirror/ $testPackageServerDir || return 5
 
     return 0
 }
