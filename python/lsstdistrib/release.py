@@ -4,11 +4,15 @@ functions related to releasing new versions of products.
 from __future__ import with_statement
 from __future__ import absolute_import
 
-import sys, os, re, shutil
+import sys
+import os
+import re
+import shutil
 from .manifest import DeployedManifests, Manifest, Dependency, DeployedProductNotFound
-from .server   import Repository
-from .tags     import TagDef
+from .server import Repository
+from .tags import TagDef
 from . import version as onvers
+
 
 class UprevProduct(object):
     """
@@ -37,7 +41,7 @@ class UprevProduct(object):
         """
         newbn = self.recommendNextBuildNumber(prodname, version)
         newver = onvers.substituteBuild(version, newbn)
-        
+
         oldman = self.deployed.getManifest(prodname, version)
         newman = Manifest(prodname, newver)
         for rec in oldman:
@@ -76,9 +80,7 @@ class UprevProduct(object):
         deplbuild = self.deployed.getLatestBuildNumber(prodname, version)
         undeplbuild = self.server.getLatestUndeployedBuildNumber(prodname, version)
         return max(deplbuild, undeplbuild) + 1
-             
-        
-        
+
 
 class UpdateDependents(object):
     """
@@ -169,7 +171,7 @@ class UpdateDependents(object):
        setUpgradedManifestRecords() first to get the default 
        generated records, manipulate it as needed, and pass the updated
        dictionary to a second call to setUpgradedManifestRecords().
-       
+
        Finally, after any custom tweaking, one would call 
        createManifests() to apply the customizations.  
     """
@@ -196,7 +198,7 @@ class UpdateDependents(object):
         if self.vcmp == None:
             self.vcmp = onvers.defaultVersionCompare
         self.server = Repository(rootdir)
-        self.deployed = DeployedManifests(self.server.getManifestDir(), 
+        self.deployed = DeployedManifests(self.server.getManifestDir(),
                                           self.vcmp)
         self.log = log
         self.creator = None
@@ -230,8 +232,8 @@ class UpdateDependents(object):
                         self.server.getProductDir(dep[0], dep[1])
                     except DeployedProductNotFound:
                         print >> self.log, \
-                          "Note: No product directory for %s %s; skipping." % \
-                          (dep[0], dep[1])
+                            "Note: No product directory for %s %s; skipping." % \
+                            (dep[0], dep[1])
                         continue
                     if not out.has_key(dep[0]) or \
                        self.vcmp(dep[1], out[dep[0]]) > 0:
@@ -301,7 +303,7 @@ class UpdateDependents(object):
             return max(deplbuild, undeplbuild) + 1
         except DeployedProductNotFound, ex:
             return 1
-             
+
     def createManifests(self):
         """
         Create a new manifest file for each of the dependents of the 
@@ -320,16 +322,16 @@ class UpdateDependents(object):
             man = self.createUpgradedManifest(prod, self.upgrecs)
             man.creator = self.creator
             man.submitter = self.submitter
-            fname = self.writeUpgradedManifest(man, prod, self.deps[prod], 
+            fname = self.writeUpgradedManifest(man, prod, self.deps[prod],
                                                self.upgblds[prod])
 
-            out.append( (prod, onvers.baseVersion(self.deps[prod]), 
-                         self.upgblds[prod], fname) )
+            out.append((prod, onvers.baseVersion(self.deps[prod]),
+                        self.upgblds[prod], fname))
 
-        # report the new products 
+        # report the new products
         return out
 
-    def writeUpgradedManifest(self, manifest, prodname, version, build, 
+    def writeUpgradedManifest(self, manifest, prodname, version, build,
                               filename=None):
         """
         write out a manifest to its product directory.  The filename, by 
@@ -402,7 +404,8 @@ class UpdateDependents(object):
                     if dman:
                         rec = dman.getSelf()
                         if not rec:
-                            raise RuntimeError("Manifest for %s %s is missing its self record" % (pname, dver))
+                            raise RuntimeError(
+                                "Manifest for %s %s is missing its self record" % (pname, dver))
                         upgradedRecords[pname] = rec
                     newman.addRecord(*rec)
                 else:
@@ -439,7 +442,7 @@ class UpdateDependents(object):
                              manifest records (in the same format as upgrecs).  
         """
         if self.upgblds is None:
-            self.upgblds = self.setUpgradedBuildNumbers();
+            self.upgblds = self.setUpgradedBuildNumbers()
         if upgrecs is None:
             upgrecs = {}
 
@@ -513,9 +516,9 @@ class UpdateDependents(object):
         return rec.data
 
     def getManifestFilenames(self):
-        return map(lambda p: self.deployed.manifestFilename(p[0], p[1]), 
+        return map(lambda p: self.deployed.manifestFilename(p[0], p[1]),
                    self.getUpdatedDependents().items())
-        
+
 
 class Release(object):
     """
@@ -585,9 +588,9 @@ class Release(object):
 
                 dest = self.makeDestPath(man)
                 if not overwrite and os.path.exists(dest):
-                    failed.append( (src, dest, 
-                                    "deployed manifest already exists") )
-                    if atomic:  
+                    failed.append((src, dest,
+                                   "deployed manifest already exists"))
+                    if atomic:
                         raise RuntimeError("%s: %s" % (failed[-1][2], dest))
                     elif self.log:
                         print >> self.log, "Destination file already exists: %s" % dest
@@ -599,8 +602,9 @@ class Release(object):
                     if not atomic and self.log:
                         print >> self.log, "Deployed", os.path.basename(dest)
                 except OSError, ex:
-                    failed.append( (src, dest, str(ex)) )
-                    if atomic:  raise
+                    failed.append((src, dest, str(ex)))
+                    if atomic:
+                        raise
                     elif self.log:
                         print >> self.log, "Trouble copying file: %s: %s" % \
                             (str(ex), man[2])

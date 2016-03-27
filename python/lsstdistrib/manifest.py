@@ -5,22 +5,27 @@ software stack.  The main functionality is provided via the Manifest class.
 from __future__ import absolute_import
 from __future__ import with_statement
 
-import sys, os, re, cStringIO, time
+import sys
+import os
+import re
+import cStringIO
+import time
 from subprocess import Popen, PIPE
 from copy import copy
 
 from . import version as onvers
 
 defaultColumnNames = \
-"pkg flavor version tablefile installation_directory installID".split()
+    "pkg flavor version tablefile installation_directory installID".split()
 headerLineMagic = "EUPS distribution manifest"
 defaultManifestHeader = headerLineMagic + \
-""" for %s (%s). Version 1.0
+    """ for %s (%s). Version 1.0
 #
 """
 headerLineRe = re.compile(headerLineMagic + r" for (\S+) \((\S+)\)")
 
 extension = ".manifest"
+
 
 class Manifest(object):
     """
@@ -61,7 +66,7 @@ class Manifest(object):
         self.commcount += 1
         key = '#'+str(self.commcount)
         self.keys.append(key)
-        self.recs[key] = ['#'] + [ '' ] * len(self.colnames)
+        self.recs[key] = ['#'] + [''] * len(self.colnames)
         self.recs[key][-1] = comment
 
     def addRecord(self, pkgname, flavor, version,
@@ -84,7 +89,7 @@ class Manifest(object):
             self.recs[key] = [pkgname, flavor, version,
                               tablefile, installdir, installid]
 
-    def addLSSTRecord(self, prodname, version, pkgpath=None, build=None, 
+    def addLSSTRecord(self, prodname, version, pkgpath=None, build=None,
                       flavor="generic", id="lsstbuild", buildqual="+"):
         """append a standard build record for an LSST package.
 
@@ -108,9 +113,8 @@ class Manifest(object):
 
         self.addRecord(prodname, flavor, version+buildsuffix, tablepath, ipkgpath,
                        self.defaultID(id, prodname, version, path=srvpath))
-                                      
-                       
-    def addExtRecord(self, pkgname, version, pkgpath="external", 
+
+    def addExtRecord(self, pkgname, version, pkgpath="external",
                      build="1", flavor="generic", id="lsstbuild", buildqual="+"):
         """append a standard build record for an LSST package
 
@@ -134,7 +138,7 @@ class Manifest(object):
         @param id         the installid or abbreviateion (default: "pacman")
         """
         vbits = onvers.splitToReleaseBuild(self.vers)
-        self.addLSSTRecord(self.name, vbits[0], self.pkgpath, vbits[2], flavor, 
+        self.addLSSTRecord(self.name, vbits[0], self.pkgpath, vbits[2], flavor,
                            id, vbits[1])
 
     def defaultProductPath(self, prodname, version, pkgpath=None):
@@ -145,7 +149,7 @@ class Manifest(object):
         path = "%s/%s" % (prodname, ver)
         if pkgpath:
             path = "%s/%s" % (pkgpath, path)
-            
+
         return path
 
     def defaultID(self, id, prodname, version, pkgpath=None, flavor=None, path=None):
@@ -248,14 +252,14 @@ class Manifest(object):
         """
         collen = self._collen()
         fmt = "%%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%s\n" % tuple(collen[:-1])
-        
+
         strm.write(self.hdr % (self.name, self.vers))
         if self.creator or self.submitter:
             if self.creator:
                 strm.write("# Creator: %s\n" % self.creator)
                 if self.submitter:
                     strm.write("# Submitter: %s\n" % self.submitter)
-            strm.write("# Time: %s\n" % 
+            strm.write("# Time: %s\n" %
                        time.strftime("%Y/%m/%d %H:%M:%S %Z", time.localtime()))
         strm.write((fmt % tuple(self.colnames)))
         strm.write("#" + " ".join(map(lambda x: '-' * x, collen))[1:109])
@@ -278,14 +282,17 @@ class Manifest(object):
         return out
 
     class _iterator(object):
+
         def __init__(self, manifest):
             self._keys = manifest.keys[:]
             self._recs = manifest.recs.copy()
             self._nxtIdx = 0
             if len(self._keys) == 0:
                 self._nxtIdx = 1
+
         def __iter__(self):
             return self
+
         def next(self):
             if self._nxtIdx >= len(self._keys):
                 raise StopIteration()
@@ -296,13 +303,13 @@ class Manifest(object):
 
     def __iter__(self):
         return self._iterator(self)
-            
+
     def _collen(self):
         x = self.recs.values()
         x.append(self.colnames)
         return map(lambda y: max(map(lambda x: len(x[y]), x)),
-                   xrange(0,len(self.colnames)))
-    
+                   xrange(0, len(self.colnames)))
+
     def fromFile(filename, flavor="generic", product=None, version=None):
         """
         create a manifest from the contents of existing one
@@ -345,16 +352,17 @@ class Manifest(object):
             if not self.hasProduct(other.recs[key][0]):
                 self.addRecord(*other.recs[key])
 
+
 class Dependency(object):
     """
     a light weight container of the data from one record in a manifest
     """
-    NAME       = 0
-    FLAVOR     = 1
-    VERSION    = 2
-    TABLEFILE  = 3
+    NAME = 0
+    FLAVOR = 1
+    VERSION = 2
+    TABLEFILE = 3
     INSTALLDIR = 4
-    INSTALLID  = 5
+    INSTALLID = 5
 
     def __init__(self, data):
         """
@@ -377,6 +385,7 @@ class Dependency(object):
             return False
         return True
 
+
 def manifestFilename(prodname, version, flavor=None):
     """
     return the name of the manifest file for the given product within
@@ -392,6 +401,7 @@ def manifestFilename(prodname, version, flavor=None):
     if flavor:
         out = os.path.join(flavor, out)
     return out
+
 
 class DeployedManifests(object):
     """
@@ -418,8 +428,8 @@ class DeployedManifests(object):
         return a list of product-version pairs of products that depends
         the given product.
         """
-        # this implementation uses grep for maximum performance search 
-        # through many files.  
+        # this implementation uses grep for maximum performance search
+        # through many files.
         mprod = "^\s*%s\s"
         mflav = "\s*%s\s"
         mvers = "\s*%s\s"
@@ -434,7 +444,7 @@ class DeployedManifests(object):
         cmd.append(pattern)
         cmd += self.latestManifestFiles()
 
-        srch = Popen(cmd, executable="/bin/grep", stdout=PIPE, stderr=PIPE, 
+        srch = Popen(cmd, executable="/bin/grep", stdout=PIPE, stderr=PIPE,
                      cwd=self.dir)
         (cmdout, cmderr) = srch.communicate()
         matchedFiles = cmdout.strip().split("\n")
@@ -443,8 +453,7 @@ class DeployedManifests(object):
             raise RuntimeError(msg)
 
         return map(lambda f: self.productFromFilename(f), matchedFiles)
-        
-        
+
     def _paircmp(self, pair1, pair2):
         cmpson = cmp(pair1[0], pair2[0])
         if cmpson != 0:
@@ -454,7 +463,7 @@ class DeployedManifests(object):
         if pair1[1] is None:
             return -1
         if pair2[1] is None:
-            return  1
+            return 1
         return self.vcmp(pair1[1], pair2[1])
 
     def listAll(self):
@@ -463,16 +472,16 @@ class DeployedManifests(object):
         deployed as determined by manifests files in the manifests 
         directory
         """
-        return map(lambda m: self.productFromFilename(os.path.join(self.dir,m)),
-                  filter(lambda f: f.endswith(self.extension), 
-                         os.listdir(self.dir)))
+        return map(lambda m: self.productFromFilename(os.path.join(self.dir, m)),
+                   filter(lambda f: f.endswith(self.extension),
+                          os.listdir(self.dir)))
 
     def getVersions(self, prodname):
         """
         return an ordered list of versions that have been deployed for a 
         given product.
         """
-        out = map(lambda p: p[1], 
+        out = map(lambda p: p[1],
                   filter(lambda m: m[0] == prodname, self.listAll()))
         out.sort(self.vcmp)
         return out
@@ -496,12 +505,12 @@ class DeployedManifests(object):
                             will be searched.
         """
         # list the manifest files and parse each into a product and version
-        mfs =self.listAll()
+        mfs = self.listAll()
         if len(mfs) == 0:
             return []
 
         # collect products together and sort by version order
-        mfs.sort(self._paircmp)  
+        mfs.sort(self._paircmp)
 
         out = []
         while len(mfs) > 0:
@@ -536,12 +545,12 @@ class DeployedManifests(object):
         if not versions:
             raise DeployedProductNotFound(prodname, version)
 
-        versions = filter(lambda b: buildRe.search(b), 
-                          filter(lambda v: v.startswith(version+"+"), 
+        versions = filter(lambda b: buildRe.search(b),
+                          filter(lambda v: v.startswith(version+"+"),
                                  versions))
         if len(versions) == 0:
             raise DeployedProductNotFound(prodname, version)
-            
+
         versions.sort(self.vcmp)
         return int(buildRe.search(versions[-1]).group(1))
 
@@ -583,11 +592,11 @@ class DeployedManifests(object):
         open the manifest file for a given product and return its contents
         as a Manifest instance
         """
-        filename = os.path.join(self.dir, 
+        filename = os.path.join(self.dir,
                                 self.manifestFilename(prodname, version, flavor))
         if not os.path.exists(filename):
             raise DeployedProductNotFound(prodname, version, flavor)
-        if not flavor:  
+        if not flavor:
             flavor = "generic"
         return Manifest.fromFile(filename, flavor, prodname, version)
 
@@ -604,12 +613,13 @@ class DeployedProductNotFound(Exception):
         ver = version or ""
         if not msg:
             msg = "Product not deployed: %s %s (%s)" % (prodname, ver, flavor)
-                
+
         Exception.__init__(self, msg)
 
         self.name = prodname
         self.verison = version
         self.flavor = flavor
+
 
 class BuildDependencies(object):
     """
@@ -662,7 +672,7 @@ class BuildDependencies(object):
         this list.
         @param   
         """
-        ver=version
+        ver = version
         if ver and \
            not os.path.exists(self.manifestFile(prodname, ver, flavor)):
             ver = None
@@ -679,11 +689,12 @@ class BuildDependencies(object):
                 dep = deps[mine[0]]
                 deps[mine[0]] = self._subVersion(dep, version)
             self.mergeDependencies(deps)
-            
+
         else:
             self.mergeFromManifestFile(manfile)
 
     _buildExtRe = re.compile("([\+\-])(\d+)$")
+
     def _subVersion(self, deprec, version):
         ntaggedas, next = self._splitVersion(version)
         if not next:
@@ -694,11 +705,11 @@ class BuildDependencies(object):
         deprec.data[deprec.VERSION] = version
 
         deprec.data[deprec.TABLEFILE] = \
-           self._subVersionStr(deprec.data[deprec.TABLEFILE], otaggedas, ntaggedas)
+            self._subVersionStr(deprec.data[deprec.TABLEFILE], otaggedas, ntaggedas)
         deprec.data[deprec.INSTALLDIR] = \
-           self._subVersionStr(deprec.data[deprec.INSTALLDIR], oversion, version)
+            self._subVersionStr(deprec.data[deprec.INSTALLDIR], oversion, version)
         deprec.data[deprec.INSTALLID] = \
-           self._subVersionStr(deprec.data[deprec.INSTALLID], otaggedas, ntaggedas)
+            self._subVersionStr(deprec.data[deprec.INSTALLID], otaggedas, ntaggedas)
         return deprec
 
     def _subVersionStr(self, instr, over, nver):
@@ -706,7 +717,7 @@ class BuildDependencies(object):
         if p < 0:
             return instr
         return instr[:p] + nver + instr[p+len(over):]
-    
+
     def _splitVersion(self, version):
         ext = None
         taggedas = version
@@ -754,6 +765,7 @@ class BuildDependencies(object):
             out.addRecord(*dep.data)
         return out
 
+
 class SortProducts(object):
     """
     a class for sorting a list of products into dependency order.  This 
@@ -776,7 +788,7 @@ class SortProducts(object):
             for prod in products:
                 self.addProduct(prod)
 
-    def _addProductInfo(self, prodrep, prodname, version=None, 
+    def _addProductInfo(self, prodrep, prodname, version=None,
                         manifestFile=None):
         self.prods[prodname] = (prodrep, version, manifestFile)
 
@@ -831,7 +843,7 @@ class SortProducts(object):
             prodinfo.append(None)
         if manifestFile:
             if not os.path.exists(manifestFile):
-                raise RuntimeError("Manifest file does not exist: " + 
+                raise RuntimeError("Manifest file does not exist: " +
                                    manifestFile)
             prodinfo[2] = manifestFile
         (name, vers, filen) = prodinfo[:3]
@@ -841,7 +853,8 @@ class SortProducts(object):
     def defaultProductInfoFunction(product):
         if isinstance(product, str):
             product = map(lambda p: p.strip(), product.split('/', 1))
-            if len(product) < 2: product.append(None)
+            if len(product) < 2:
+                product.append(None)
         return product
 
     def preferTag(self, tag):
@@ -871,12 +884,13 @@ class SortProducts(object):
         out = []
         for dep in deps:
             if dep.getName() in self.prods.keys():
-                out.append( self.prods[dep.getName()][0] )
+                out.append(self.prods[dep.getName()][0])
         for prod in self.prods.keys():
             # catch any pseudo packages
             if self.prods[prod][0] not in out:
-                out.append( self.prods[prod][0] ) 
+                out.append(self.prods[prod][0])
         return out
+
 
 def sortInDependencyOrder(productList, productInfoFunc=None, serverdir=None):
     """

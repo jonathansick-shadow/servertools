@@ -2,10 +2,16 @@
 test the autouprev script
 """
 
-import os, sys, re, unittest, pdb, shutil
+import os
+import sys
+import re
+import unittest
+import pdb
+import shutil
 from subprocess import Popen, PIPE
 
 testdir = os.path.join(os.getcwd(), "tests")
+
 
 class AutouprevTestCase(unittest.TestCase):
 
@@ -34,9 +40,9 @@ class AutouprevTestCase(unittest.TestCase):
         self.assert_("external/pyfits/2.4.0/b2.manifest" in updatedFiles)
         self.assert_("external/matplotlib/1.0.1/b2.manifest" in updatedFiles)
         self.assert_(os.path.exists(os.path.join(self.serverroot,
-                     "external/pyfits/2.4.0/b2.manifest")))
+                                                 "external/pyfits/2.4.0/b2.manifest")))
         self.assert_(os.path.exists(os.path.join(self.serverroot,
-                     "external/matplotlib/1.0.1/b2.manifest")))
+                                                 "external/matplotlib/1.0.1/b2.manifest")))
 
     def testNoaction(self):
         exe = "bin/autouprev.py"
@@ -51,7 +57,6 @@ class AutouprevTestCase(unittest.TestCase):
         self.assertEquals(2, len(updatedFiles))
         self.assert_("external/pyfits/2.4.0/b2.manifest" in updatedFiles)
         self.assert_("external/matplotlib/1.0.1/b2.manifest" in updatedFiles)
-
 
 
 if __name__ == "__main__":

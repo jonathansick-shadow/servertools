@@ -5,7 +5,11 @@ which products/versions are a assigned a particular tag by the project.
 from __future__ import absolute_import
 from __future__ import with_statement
 
-import sys, os, re, cStringIO
+import sys
+import os
+import re
+import cStringIO
+
 
 class TagDef(object):
 
@@ -43,7 +47,7 @@ class TagDef(object):
         return None
 
     bextRe = re.compile(r'[\+\-]\d+')
-    
+
     def getVersionPath(self, prodname):
         data = self.lookup(prodname)
         if data:
@@ -53,7 +57,7 @@ class TagDef(object):
             if bmat:
                 bext = bmat.group(0)
                 ver = bextRe.sub('', ver)
-           
+
             path = os.path.join(data[0], ver)
             if data[3]:
                 os.path.join(path, data[3])

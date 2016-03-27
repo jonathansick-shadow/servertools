@@ -1,11 +1,16 @@
 #! /usr/bin/env python
 #
 from __future__ import with_statement
-import sys, os, cStringIO, re, errno, optparse
+import sys
+import os
+import cStringIO
+import re
+import errno
+import optparse
 from copy import copy
 
 defaultManifestHeader = \
-"""EUPS distribution manifest for %s (%s). Version 1.0
+    """EUPS distribution manifest for %s (%s). Version 1.0
 #
 """
 headerLineMagic = r"EUPS distribution manifest"
@@ -17,7 +22,8 @@ dmspkgs = "/lsst_ibrix/lsst/softstack/dmspkgs"
 destpkgs = "/lsst_ibrix/lsst/softstack/pkgs/test/dc4"
 
 defaultColumnNames = \
-"pkg flavor version tablefile installation_directory installID".split()
+    "pkg flavor version tablefile installation_directory installID".split()
+
 
 class Manifest(object):
     """an in-memory representation of a package manifest."""
@@ -49,7 +55,7 @@ class Manifest(object):
         self.commcount += 1
         key = '#'+str(self.commcount)
         self.keys.append(key)
-        self.recs[key] = [ '' ] * len(self.colnames)
+        self.recs[key] = [''] * len(self.colnames)
         self.recs[key][-1] = comment
 
     def addRecord(self, pkgname, flavor, version,
@@ -72,7 +78,7 @@ class Manifest(object):
             self.recs[key] = [pkgname, flavor, version,
                               tablefile, installdir, installid]
 
-    def addLSSTRecord(self, pkgname, version, pkgpath=None, build="1", 
+    def addLSSTRecord(self, pkgname, version, pkgpath=None, build="1",
                       flavor="generic", id="lsstbuild"):
         """append a standard build record for an LSST package.
 
@@ -94,8 +100,8 @@ class Manifest(object):
 
         self.addRecord(pkgname, flavor, bversion, tablepath, ipkgpath,
                        self.defaultID(id, pkgname, flavor, version, fpkgpath))
-                       
-    def addExtRecord(self, pkgname, version, pkgpath="external", 
+
+    def addExtRecord(self, pkgname, version, pkgpath="external",
                      build="1", flavor="generic", id="lsstbuild"):
         """append a standard build record for an LSST package
 
@@ -191,7 +197,7 @@ class Manifest(object):
         """
         collen = self._collen()
         fmt = "%%-%ds %%-%ds %%-%ds %%-%ds %%-%ds %%s\n" % tuple(collen[:-1])
-        
+
         strm.write(self.hdr % (self.name, self.vers))
         strm.write((fmt % tuple(self.colnames)))
         strm.write("#" + " ".join(map(lambda x: '-' * x, collen))[1:79])
@@ -202,13 +208,13 @@ class Manifest(object):
                 strm.write("# %s\n" % self.recs[key][-1])
             else:
                 strm.write(fmt % tuple(self.recs[key]))
-            
+
     def _collen(self):
         x = self.recs.values()
         x.append(self.colnames)
         return map(lambda y: max(map(lambda x: len(x[y]), x)),
-                   xrange(0,len(self.colnames)))
-    
+                   xrange(0, len(self.colnames)))
+
     def fromFile(filename, flavor="generic", product=None, version=None):
         """
         create a manifest from the contents of existing one
@@ -251,6 +257,7 @@ class Manifest(object):
             if not self.hasProduct(other.recs[key][0]):
                 self.addRecord(*other.recs[key])
 
+
 class Loader(object):
 
     def __init__(self, name, version, build="1", flavor="generic"):
@@ -273,7 +280,8 @@ class Loader(object):
                     data = spaceRe.split(directiveRe.sub('', line).strip())
                     parms = {}
                     for item in data:
-                        if not item:  continue
+                        if not item:
+                            continue
                         pair = item.split('=', 1)
                         if len(pair) < 2:
                             print >> sys.stderr, "bad directive syntax:", item
@@ -293,7 +301,7 @@ class Loader(object):
             raise RuntimeError("Dependency not found: " + parms['pkg'])
         parms['ver'] = curinfo[0]
         version = parms['ver']
-        p = version.find('+');
+        p = version.find('+')
         build = "1"
         if (p >= 0):
             version = parms['ver'][:p]
@@ -305,18 +313,17 @@ class Loader(object):
             if curinfo and len(curinfo) > 1:
                 parms['pkgpath'] = curinfo[1]
 
-            if parms.get('installFile','').endswith('.bld'):
-                id="lsstbuild:"
-                if parms['pkgpath']: id += parms['pkgpath']
+            if parms.get('installFile', '').endswith('.bld'):
+                id = "lsstbuild:"
+                if parms['pkgpath']:
+                    id += parms['pkgpath']
                 id = os.path.join(id, parms['pkg'], version,
                                   parms['installFile'])
 
         dep = os.path.join(destpkgs, "manifests",
                            "%s-%s.manifest" % (parms['pkg'], parms['ver']))
-                           
+
         self.man.merge(Manifest.fromFile(dep))
-        
-            
 
     def _addself(self, parms):
         if not parms.has_key("pkg"):
@@ -333,9 +340,10 @@ class Loader(object):
             if curinfo and len(curinfo) > 1:
                 parms['pkgpath'] = curinfo[1]
 
-            if parms.get('installFile','').endswith('.bld'):
-                id="lsstbuild:"
-                if parms['pkgpath']: id += parms['pkgpath']
+            if parms.get('installFile', '').endswith('.bld'):
+                id = "lsstbuild:"
+                if parms['pkgpath']:
+                    id += parms['pkgpath']
                 id = os.path.join(id, parms['pkg'], parms['ver'],
                                   parms['installFile'])
 
@@ -343,7 +351,8 @@ class Loader(object):
 
     def getManifest(self):
         return self.man
-            
+
+
 class Current(object):
 
     def __init__(self, file):
@@ -391,9 +400,7 @@ class Current(object):
         self.pkgPath[pkgname] = out
         return out
 
-        
-                   
-        
+
 def options():
     parser = optparse.OptionParser()
     parser.add_option("-E", "--as-external", dest="isext",
@@ -409,6 +416,7 @@ def options():
 
     return parser.parse_args()
 
+
 def parseProduct(prodpath):
     fields = prodpath.split('/')
     if len(fields) < 2:
@@ -416,8 +424,9 @@ def parseProduct(prodpath):
     out = fields[-2:]
     isext = len(fields) > 2 and fields[-3] == 'external'
     out.append(isext)
-        
+
     return out
+
 
 def buildNewManifest(prod, version, isext, args, opts):
     m = Manifest(prod, version)
@@ -432,12 +441,13 @@ def buildNewManifest(prod, version, isext, args, opts):
         m.addLSSTRecord(prod, version, build=opts.bnum, id=type)
     sys.stdout.write(str(m))
 
+
 def transferManifest(prod, version, isext, args, opts):
     loader = Loader(prod, version, opts.bnum)
 
     loader.fillFrom(opts.manfile)
     sys.stdout.write(str(loader.getManifest()))
-    
+
 
 if __name__ == "__main__":
     (opts, args) = options()
@@ -445,15 +455,15 @@ if __name__ == "__main__":
         raise RuntimeError("Missing product")
     path = args.pop(0)
     (prod, version, isext) = parseProduct(path)
-    
+
     if opts.dotrx:
         if not opts.manfile:
             opts.manfile = os.path.join(path, "the.manifest")
             # raise RuntimeError("need to set --manifest (-m) to old manifest")
-        
+
         transferManifest(prod, version, isext, args, opts)
     else:
         buildNewManifest(prod, version, isext, args, opts)
 
 
-    
+

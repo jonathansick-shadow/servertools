@@ -2,13 +2,19 @@
 test the release module
 """
 
-import os, sys, re, unittest, pdb, shutil
+import os
+import sys
+import re
+import unittest
+import pdb
+import shutil
 from cStringIO import StringIO
 
 from lsstdistrib.release import UpdateDependents
 from lsstdistrib.manifest import Manifest, DeployedProductNotFound
 
 testdir = os.path.join(os.getcwd(), "tests")
+
 
 class UpdateDependentsCheckTestCase(unittest.TestCase):
 
@@ -20,7 +26,7 @@ class UpdateDependentsCheckTestCase(unittest.TestCase):
 
     def testDependents(self):
         rel = UpdateDependents([("numpy", "1.6.1+1")], self.serverroot)
-        deps = rel.getDependents();
+        deps = rel.getDependents()
         self.assertEquals(2, len(deps.keys()))
         pnames = deps.keys()
         self.assert_("pyfits" in deps.keys())
@@ -29,7 +35,7 @@ class UpdateDependentsCheckTestCase(unittest.TestCase):
         self.assertEquals("1.0.1+1", deps.get("matplotlib"))
 
         rel = UpdateDependents([("tcltk", "8.5.9+1")], self.serverroot)
-        deps = rel.getDependents();
+        deps = rel.getDependents()
         self.assertEquals(8, len(deps.keys()))
         self.assertEquals("2.7.2+2", deps.get("python"))
 
@@ -62,7 +68,7 @@ class UpdateDependentsCheckTestCase(unittest.TestCase):
         self.assertEquals("2.4.0+2", recs['pyfits'][2])
         self.assert_(recs.has_key("matplotlib"))
         self.assert_(recs.has_key("numpy"))
-        
+
         rel = UpdateDependents([("tcltk", "8.5.9+1")], self.serverroot)
         recs = rel.setUpgradedManifestRecords()
         self.assertEquals(9, len(recs.keys()))
@@ -90,11 +96,11 @@ class UpdateDependentsCheckTestCase(unittest.TestCase):
         self.assert_(rec is not None)
         self.assertEquals(rec[2], "2.7.2+3")
 
-        self.assertRaises(DeployedProductNotFound, 
+        self.assertRaises(DeployedProductNotFound,
                           rel.createUpgradedManifest, "goob")
 
     def testMulti(self):
-        rel = UpdateDependents([("numpy", "1.6.1+1"), 
+        rel = UpdateDependents([("numpy", "1.6.1+1"),
                                 ("python", "2.7.2+2")],
                                self.serverroot)
 
@@ -109,7 +115,6 @@ class UpdateDependentsCheckTestCase(unittest.TestCase):
         rec = man.getProduct("numpy")
         self.assert_(rec is not None)
         self.assertEquals(rec[2], "1.6.1+2")
-        
 
 
 class UpdateDependentsWriteTestCase(unittest.TestCase):
@@ -167,9 +172,6 @@ class UpdateDependentsWriteTestCase(unittest.TestCase):
         rec = man.getProduct("matplotlib")
         self.assert_(rec is not None)
         self.assertEquals(rec[2], "1.0.1+2")
-
-
-
 
 
 if __name__ == "__main__":

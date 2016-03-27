@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 #
-import os, sys, re
+import os
+import sys
+import re
 import eups
 from eups import distrib
 

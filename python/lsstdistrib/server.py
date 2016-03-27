@@ -3,9 +3,11 @@ functions related to the storage of products artifacts on the server
 """
 from __future__ import absolute_import
 
-import sys, os, re
+import sys
+import os
+import re
 from . import version as onvers
-from . import manifest 
+from . import manifest
 
 
 class Repository(object):
@@ -22,13 +24,13 @@ class Repository(object):
         self.root = rootdir
 
     def getPseudoProductRoot(self):
-        return os.path.join(self.root, self.pseudoDirName)        
+        return os.path.join(self.root, self.pseudoDirName)
 
     def getManifestDir(self):
         return os.path.join(self.root, self.manifestDirName)
 
     def getManifestFile(self, product, version):
-        return os.path.join(self.getManifestDir(), 
+        return os.path.join(self.getManifestDir(),
                             "%s-%s%s" % (product, version, manifest.extension))
 
     def getExternalProductRoot(self):
@@ -69,7 +71,7 @@ class Repository(object):
                 msg = "No product directory found for " + prodname
                 raise manifest.DeployedProductNotFound(prodname, msg=msg)
 
-        if not version: 
+        if not version:
             return pdir
 
         pdir = os.path.join(pdir, onvers.baseVersion(version))
@@ -95,7 +97,7 @@ class Repository(object):
         return a list of manifest filenames store in the given product's
         product directory.  
         """
-        return map(lambda m: m[0], 
+        return map(lambda m: m[0],
                    self._getUndeployedManifestsFor(prodname, version, flavor))
 
     def getLatestUndeployedManifestFile(self, prodname, version, flavor=None):
@@ -104,7 +106,7 @@ class Repository(object):
         product directory.  
         """
         files = self._getUndeployedManifestsFor(prodname, version, flavor)
-        if not files: 
+        if not files:
             return None
         return files[-1][0]
 
@@ -114,12 +116,12 @@ class Repository(object):
         product directory.  
         """
         files = self._getUndeployedManifestsFor(prodname, version, flavor)
-        if not files: 
+        if not files:
             return 0
         return int(files[-1][1])
 
     manifestTemplate = "b%d.manifest"
-                       
+
     def getNextUndeployedBuildFilename(self, prodname, version, flavor=None):
         n = self.getLatestUndeployedBuildNumber(prodname, version, flavor) + 1
         return self.manifestTemplate % n

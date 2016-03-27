@@ -1,7 +1,10 @@
 """
 functions related to manipulating versions
 """
-import sys, os, re
+import sys
+import os
+import re
+
 
 class VersionCompare(object):
     """
@@ -38,18 +41,24 @@ class VersionCompare(object):
 
         # compare the release qualifiers:  + > - > anything else
         if q1 != q2:
-            if q2 == '+' or not q1:  return -1
-            if q2 == '-' and q1 != '+':  return -1
-            if q1 == '+' or not q2:  return +1
-            if q1 == '-' and q2 != '+':  return +1
+            if q2 == '+' or not q1:
+                return -1
+            if q2 == '-' and q1 != '+':
+                return -1
+            if q1 == '+' or not q2:
+                return +1
+            if q1 == '-' and q2 != '+':
+                return +1
             return cmp(q1, q2)
 
-        # if either is missing a build number, consider the missing 
+        # if either is missing a build number, consider the missing
         # one as earlier
-        if not b1: 
-            if not b2:  return 0
+        if not b1:
+            if not b2:
+                return 0
             return -1
-        if not b2:  return +1
+        if not b2:
+            return +1
 
         # compare release field (after +/-)
         return self.compare(b1, b2)
@@ -69,8 +78,8 @@ class VersionCompare(object):
 
     def _fldCompare(self, f1, f2):
         # compare two version fields.  Normally these should be integers;
-        # if so, compare them numerically.  If one is an integer and the 
-        # other is not, consider the integer as the lesser.  If neither 
+        # if so, compare them numerically.  If one is an integer and the
+        # other is not, consider the integer as the lesser.  If neither
         # are integers, compare them lexically.
         try:
             f1 = int(f1)
@@ -83,6 +92,7 @@ class VersionCompare(object):
         return self.compare(v1, v2)
 
 buildExtRe = re.compile(r'([^\d\.]+)(\d+)$')
+
 
 def incrementBuild(v1, forcePlus=False):
     mat = buildExtRe.search(v1)
@@ -102,12 +112,14 @@ def incrementBuild(v1, forcePlus=False):
     else:
         return v1 + "+1"
 
+
 def substituteBuild(v1, bnum, forcePlus=False):
     bnum = str(bnum)
     mat = buildExtRe.search(v1)
     if mat:
         q = mat.group(1)
-        if forcePlus: q = "+"
+        if forcePlus:
+            q = "+"
         return buildExtRe.sub(q+bnum, v1)
     elif v1.endswith('-'):
         if forcePlus:
@@ -129,11 +141,13 @@ def splitToReleaseBuild(version):
         return (version[:mat.start(0)], mat.group(1), mat.group(2))
     return (version, None, None)
 
+
 def baseVersion(version):
     """
     strip off the build qualifier from the given version string
     """
     return splitToReleaseBuild(version)[0]
+
 
 def buildNumber(version, default=None):
     """
@@ -146,7 +160,8 @@ def buildNumber(version, default=None):
                        number is not found in the input string.
     """
     out = splitToReleaseBuild(version)[2]
-    if out is None:  out = default
+    if out is None:
+        out = default
     return out
 
 defaultVersionCompare = VersionCompare()

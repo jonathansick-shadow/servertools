@@ -1,14 +1,18 @@
 #! /usr/bin/env python
 #
-import os, sys, optparse, re
+import os
+import sys
+import optparse
+import re
 from lsstdistrib.manifest import Manifest
 from lsstdistrib.tags import TagDef
 
 extRe = re.compile(r"([\+\-])(\d+)$")
 textRe = re.compile(r"([\+\-])(\d+)")
 
+
 def options():
-    usage="%prog [ -t TAG ] -d DIR manifest [ tagfile ]"
+    usage = "%prog [ -t TAG ] -d DIR manifest [ tagfile ]"
     parser = optparse.OptionParser(usage=usage)
     parser.add_option("-d", "--server-directory", dest="sdir", action="store",
                       metavar="DIR", help="the root directory for the server")
@@ -17,9 +21,10 @@ def options():
                       help="the tag whose definitions we should adjust to")
     parser.add_option("-b", "--build-number", dest='bnum', action="store",
                       metavar="NUM",
-                     help="update build number for the primary product to NUM")
+                      help="update build number for the primary product to NUM")
 
     return parser.parse_args()
+
 
 def main():
     (opts, args) = options()
@@ -30,7 +35,7 @@ def main():
         raise RuntimeError("Missing server directory")
     sdir = opts.sdir
     mdir = os.path.join(sdir, "manifests")
-    
+
     inman = Manifest.fromFile(args[0])
     prodname = inman.name
     version = inman.vers
@@ -42,7 +47,7 @@ def main():
     else:
         raise RuntimeError("No tag or tagfile specified")
     tagged = TagDef(tagfile)
-    
+
     deps = inman.getDeps()
     adjusted = []
     depnames = set()
@@ -55,14 +60,14 @@ def main():
 
                 if opts.bnum:
                     if extRe.search(dep.data[dep.VERSION]):
-                      dep.data[dep.VERSION] = extRe.sub(r"\g<1>%s" % opts.bnum,
-                                                        dep.data[dep.VERSION])
-                      dep.data[dep.INSTALLDIR] = extRe.sub(r"\g<1>%s" % opts.bnum,
-                                                     dep.data[dep.INSTALLDIR])
+                        dep.data[dep.VERSION] = extRe.sub(r"\g<1>%s" % opts.bnum,
+                                                          dep.data[dep.VERSION])
+                        dep.data[dep.INSTALLDIR] = extRe.sub(r"\g<1>%s" % opts.bnum,
+                                                             dep.data[dep.INSTALLDIR])
                     else:
-                        dep.data[dep.VERSION]    += "+%s" % opts.bnum
+                        dep.data[dep.VERSION] += "+%s" % opts.bnum
                         dep.data[dep.INSTALLDIR] += "+%s" % opts.bnum
-                        
+
                 adjusted.insert(0, dep)
             else:
                 depver = tagged.getVersion(dep.data[dep.NAME])

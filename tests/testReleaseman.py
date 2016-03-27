@@ -2,10 +2,16 @@
 test the autouprev script
 """
 
-import os, sys, re, unittest, pdb, shutil
+import os
+import sys
+import re
+import unittest
+import pdb
+import shutil
 from subprocess import Popen, PIPE
 
 testdir = os.path.join(os.getcwd(), "tests")
+
 
 class AutouprevTestCase(unittest.TestCase):
 
@@ -22,7 +28,7 @@ class AutouprevTestCase(unittest.TestCase):
 
         self.dest = os.path.join(self.serverroot,
                                  "manifests/numpy-1.6.1+2.manifest")
-                        
+
     def tearDown(self):
         if os.path.exists(self.serverroot):
             shutil.rmtree(self.serverroot)
@@ -40,7 +46,6 @@ class AutouprevTestCase(unittest.TestCase):
 
         updatedFiles = cmdout.strip().split("\n")
         self.assert_(os.path.exists(self.dest))
-
 
 
 if __name__ == "__main__":

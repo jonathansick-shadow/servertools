@@ -1,10 +1,15 @@
 """
 test the version module
 """
-import os, sys, re, unittest, pdb
+import os
+import sys
+import re
+import unittest
+import pdb
 
 from lsstdistrib.version import VersionCompare, incrementBuild, substituteBuild, \
-                                splitToReleaseBuild, baseVersion
+    splitToReleaseBuild, baseVersion
+
 
 class FunctionsTestCase(unittest.TestCase):
 
@@ -71,6 +76,7 @@ class FunctionsTestCase(unittest.TestCase):
         self.assertEquals("4.5.1.1-1", incrementBuild("4.5.1.1-"))
         self.assertEquals("4.5.1.1+1", incrementBuild("4.5.1.1-", True))
 
+
 class VersionCompareTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -102,8 +108,8 @@ class VersionCompareTestCase(unittest.TestCase):
         self.assertEquals(-1, self.vcmp("2.3.0svn4355", "2.3.1"))
         self.assertEquals(-1, self.vcmp("2.3.0.7svn4355", "2.3.1"))
 
-        self.assertEquals( 0, self.vcmp("2.2.2.7", "2.2.2.7"))
-        
+        self.assertEquals(0, self.vcmp("2.2.2.7", "2.2.2.7"))
+
         self.assertEquals(+1, self.vcmp("2", "1"))
         self.assertEquals(+1, self.vcmp("2.3.1", "1.0"))
         self.assertEquals(+1, self.vcmp("2.3.1", "1.0.2"))
@@ -133,9 +139,9 @@ class VersionCompareTestCase(unittest.TestCase):
         self.assertEquals(+1, self.vcmp("1.0.2+3", "1.0.2svn5"))
         self.assertEquals(+1, self.vcmp("1.0.2-3", "1.0.2svn5"))
 
-        self.assertEquals( 0, self.vcmp("1.0+", "1.0+")) 
-        self.assertEquals( 0, self.vcmp("1.0-", "1.0-")) 
-        self.assertEquals( 0, self.vcmp("1.0svn", "1.0svn")) 
+        self.assertEquals(0, self.vcmp("1.0+", "1.0+"))
+        self.assertEquals(0, self.vcmp("1.0-", "1.0-"))
+        self.assertEquals(0, self.vcmp("1.0svn", "1.0svn"))
 
         self.assertEquals(-1, self.vcmp("1.0-5", "1.0+3"))
         self.assertEquals(-1, self.vcmp("1.0-", "1.0+"))
@@ -143,16 +149,15 @@ class VersionCompareTestCase(unittest.TestCase):
         self.assertEquals(-1, self.vcmp("1.0.2svn5", "1.0.2+3"))
         self.assertEquals(-1, self.vcmp("1.0.2svn5", "1.0.2-3"))
 
-        
     def testCompareBuild(self):
         self.assertEquals(-1, self.vcmp("1.0+3", "1.0+6"))
         self.assertEquals(-1, self.vcmp("1.0+23", "1.0+36"))
         self.assertEquals(-1, self.vcmp("1.0-23", "1.0-36"))
         self.assertEquals(-1, self.vcmp("1.0-23b1", "1.0-23b3"))
 
-        self.assertEquals( 0, self.vcmp("1.0+6", "1.0+6"))
-        self.assertEquals( 0, self.vcmp("1.0-6", "1.0-6"))
-        self.assertEquals( 0, self.vcmp("1.0svn6", "1.0svn6"))
+        self.assertEquals(0, self.vcmp("1.0+6", "1.0+6"))
+        self.assertEquals(0, self.vcmp("1.0-6", "1.0-6"))
+        self.assertEquals(0, self.vcmp("1.0svn6", "1.0svn6"))
 
         self.assertEquals(+1, self.vcmp("1.0+6", "1.0+3"))
         self.assertEquals(+1, self.vcmp("1.0+36", "1.0+23"))

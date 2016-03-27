@@ -1,7 +1,11 @@
 #! /usr/bin/env python
 #
 from __future__ import with_statement
-import os, sys, re, optparse, shutil
+import os
+import sys
+import re
+import optparse
+import shutil
 
 prog = os.path.basename(sys.argv[0])
 # defserverdir = os.path.join(os.environ['HOME'], 'softstack/pkgs/test/w12a')
@@ -10,8 +14,9 @@ tmpdir = '/tmp'
 
 lsstMarkerRe = re.compile(r"^\s*#\s*lsst", re.IGNORECASE)
 
+
 def options():
-    usage="%prog -d DIR product version tag [ tag ... ]"
+    usage = "%prog -d DIR product version tag [ tag ... ]"
     parser = optparse.OptionParser(usage=usage)
     parser.add_option("-t", "--type", dest="section", action="store",
                       default="lsst", metavar="TYPE",
@@ -19,18 +24,18 @@ def options():
     parser.add_option("-d", "--server-directory", dest="sdir", action="store",
                       metavar="DIR", help="the root directory for the server")
     parser.add_option("-D", "--output-directory", dest="outdir",
-                      action="store",metavar="DIR", 
+                      action="store", metavar="DIR",
                       help="save output files in given directory (rather than overwrite)")
 
     import lsstdistrib.config as config
-    import lsstdistrib.utils  as utils
+    import lsstdistrib.utils as utils
     try:
         configfile = os.path.join(os.environ['DEVENV_SERVERTOOLS_DIR'], "conf",
                                   "common_conf.py")
         utils.loadConfigfile(configfile)
     except Exception, ex:
         print >> sys.stderr, "Warning: unable to load system config file:", str(ex)
-    
+
     opts, args = parser.parse_args()
 
     if not opts.sdir and config.serverdir:
@@ -38,16 +43,26 @@ def options():
 
     return (opts, args)
 
+
 class AreWeThereYet(object):
-    def __init__(self):        self.v =  1
-    def no(self):       return self.v != 0
-    def yes(self):      return self.v == 0
-    def notyet(self):   return self.v > 0
-    def done(self):     return self.v < 0
-    def setDone(self):         self.v = -1
-    def setYes(self):          self.v =  0
+
+    def __init__(self): self.v = 1
+
+    def no(self): return self.v != 0
+
+    def yes(self): return self.v == 0
+
+    def notyet(self): return self.v > 0
+
+    def done(self): return self.v < 0
+
+    def setDone(self): self.v = -1
+
+    def setYes(self): self.v = 0
+
     def __repr__(self): return str(self.yes())
-    
+
+
 def main():
     (opts, args) = options()
 
@@ -57,7 +72,7 @@ def main():
         raise RuntimeError("Missing tag name(s) to assign")
 
     prodname = args.pop(0)
-    version  = args.pop(0)
+    version = args.pop(0)
 
     if not os.path.isdir(opts.sdir):
         print >> sys.stderr, "%s: server directory does not exist: %s" % \
@@ -68,13 +83,14 @@ def main():
     if not outdir:
         outdir = tmpdir
 
-    nextsectre=re.compile(r"^\s*#\s*\[")
-    sectre=re.compile(r"^\s*#\s*\[%s\]" % opts.section)
-    prodre=re.compile(r"^\s*%s\s" % prodname)
+    nextsectre = re.compile(r"^\s*#\s*\[")
+    sectre = re.compile(r"^\s*#\s*\[%s\]" % opts.section)
+    prodre = re.compile(r"^\s*%s\s" % prodname)
     extradir = ''
-    if opts.section != 'lsst': extradir = opts.section
+    if opts.section != 'lsst':
+        extradir = opts.section
 
-    failures=[]
+    failures = []
     for tag in args:
         tagfile = os.path.join(opts.sdir, "%s.list" % tag)
         if not os.path.exists(tagfile):
@@ -130,7 +146,7 @@ def main():
                             print >> ntf, fmt % tuple(cols)
                             inrightsection.setDone()
                         elif not line.startswith('#') and \
-                             cmp(prodname, line) < 0:
+                                cmp(prodname, line) < 0:
                             # this is the right place alphabetically
                             if savedlines:
                                 for saved in savedlines:
@@ -156,12 +172,12 @@ def main():
                 shutil.move(ntagfile, tagfile)
             except OSError, ex:
                 print >> sys.stderr, \
-                      "%s: Failed to replace original tagfile (%s): %s" \
-                      % (prog, tagfile, str(ex))
+                    "%s: Failed to replace original tagfile (%s): %s" \
+                    % (prog, tagfile, str(ex))
 
     if len(failures) > 0:
         raise RuntimeError("Tags not updated: " + ", ".join(failures))
-        
+
 if __name__ == "__main__":
     main()
 

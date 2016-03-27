@@ -1,14 +1,18 @@
 #! /usr/bin/env python
 #
 from __future__ import with_statement
-import sys, os, re, optparse, shutil
+import sys
+import os
+import re
+import optparse
+import shutil
 
-defaultBaseDir="/lsst/DC3/distrib/w12"
+defaultBaseDir = "/lsst/DC3/distrib/w12"
 
-opts=None
-builddir=None
-fulllog=None
-serverdir=None
+opts = None
+builddir = None
+fulllog = None
+serverdir = None
 
 from lsstdistrib.release import UpdateDependents, UprevProduct
 from lsstdistrib.manifest import BuildDependencies, SortProducts, Manifest, DeployedManifests
@@ -21,44 +25,46 @@ if prog.endswith(".py"):
 
 usage = "%prog [ -h ] -b DIR [-r DIR -l DIR] [-j NUM -t TAG -T TAG -f] product/version ..."
 description = \
-"""
+    """
 Test and release one or more products, up-reving their dependent packages automatically
 as necessary and desired.
 """
 
+
 def setopts():
-    parser = optparse.OptionParser(prog=prog, usage=usage, 
+    parser = optparse.OptionParser(prog=prog, usage=usage,
                                    description=description)
     parser.add_option("-b", "--distrib-base-dir", action="store", dest="basedir",
                       metavar="DIR", default=defaultBaseDir,
                       help="the root directory of the distribution server")
     parser.add_option("-r", "--ref-stack-dir", action="store", dest="refstack",
-                      metavar="DIR", 
+                      metavar="DIR",
                       help="the root directory of the distribution server")
     parser.add_option("-l", "--log-dir", action="store", dest="logdir",
-                      metavar="DIR", 
+                      metavar="DIR",
                       help="the directory where to write logs")
     parser.add_option("-T", "--reference-tag", action="store", dest="reftag",
                       metavar="TAG", default="current",
-          help="use the given tag as a guide for choosing dependency versions")
+                      help="use the given tag as a guide for choosing dependency versions")
     parser.add_option("-t", "--tag", action="store", dest="tagas",
-                      metavar="TAG", 
+                      metavar="TAG",
                       help="assign any newly deployed versions the given tag")
     parser.add_option("-j", "--thread-count", action="store", dest="threadCount",
                       metavar="TAG", default=4, type="int",
-          help="use the given tag as a guide for choosing dependency versions")
+                      help="use the given tag as a guide for choosing dependency versions")
     parser.add_option("-f", "--full-uprev", action="store_true", dest="fulluprev",
-                      default=False, 
-          help="up-rev all dependents of given products, not just those necessary for releasing the specified products")
+                      default=False,
+                      help="up-rev all dependents of given products, not just those necessary for releasing the specified products")
 
     return parser
+
 
 def main():
     global opts
     global builddir
     global serverdir
     global fulllog
-    
+
     cl = setopts()
     (opts, args) = cl.parse_args()
 
@@ -90,7 +96,7 @@ def main():
     # put requested products in dependency order
     products = sortProducts(products)
 
-    deployed = DeployedManifests(os.path.join(serverdir,"manifests"))
+    deployed = DeployedManifests(os.path.join(serverdir, "manifests"))
     uprevdata = BuildDependencies(serverdir, deployed)
     uprevver = UprevProduct(serverdir, uprevdata, deployed)
     dependents = lookupDependents(deployed, products)
@@ -98,7 +104,7 @@ def main():
     # iterate through products
     for i in xrange(products):
         prodname, version = products[i]
-        
+
         # validate the release of this product
         runValidateRelease(prodname, version)
 
@@ -116,7 +122,8 @@ def main():
 
         # remove lists for this product for next time
         del dependents[prodname]
-    
+
+
 def deployManifest(manifestfile):
     # copy the as-yet unreleased manifest file and to the manifests directory,
     # sync it to the real server, and install its product
@@ -137,6 +144,7 @@ def deployManifest(manifestfile):
         raise RuntimeError("Detected failure from releaseAndInstall (%d)" %
                            notok)
 
+
 def sortProducts(products):
     global serverdir
     global opts
@@ -145,6 +153,7 @@ def sortProducts(products):
         sorter.preferTag(opts.reftag)
     return sorter.sort()
 
+
 def lookupDependents(deployed, products):
     global serverdir
     global opts
@@ -152,21 +161,22 @@ def lookupDependents(deployed, products):
     tagged = None
     if opts.reftag:
         tagged = tags.TagDef(serverdir, opts.reftag)
-        
-    out = {}    #dependendents
+
+    out = {}  # dependendents
     for prod in products:
         version = None
         if tagged:
             version = opts.reftag.getVersion(prod[0])
         if not version:
             version = deployed.getLatestVersion(prod[0])
-            
+
         if not version:
             out[prod[0]] = []
         else:
             out[prod[0]] = deployed.dependsOn(prod[0], version)
 
     return out
+
 
 def getUprevSet(fromprod, dependents):
     # figure out the set we'll uprev between fromprod and any other product(s)
@@ -183,7 +193,7 @@ def getUprevSet(fromprod, dependents):
     # return an ordered list
     out = filter(lambda d: d[0] in prods, dependents[fromprod])
     return out
-    
+
 
 def runValidateRelease(prodname, version):
     global fulllog
@@ -207,10 +217,13 @@ def runValidateRelease(prodname, version):
     if notok:
         raise RuntimeError("Detected failure from validateRelease (%d)" % notok)
 
+
 def fail(msg, exitcode=1):
     raise FatalError(msg, exitcode)
 
+
 class FatalError(Exception):
+
     def __init__(self, msg, exitcode):
         Exception.__init__(self, msg)
         self.exitcode = exitcode

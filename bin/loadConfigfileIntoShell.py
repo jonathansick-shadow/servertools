@@ -14,7 +14,7 @@ except Exception, e:
     print >> sys.stderr, "loadConfigfileIntoShell:", str(e)
     print "false"
     sys.exit(1)
-    
+
 for key in filter(lambda s: not s.startswith('_'), dir(config)):
     print 'config_%s="%s"' % (key, getattr(config, key))
 

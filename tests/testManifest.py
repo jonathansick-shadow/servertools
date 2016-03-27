@@ -2,13 +2,18 @@
 test the manifest module
 """
 
-import os, sys, re, unittest, pdb
+import os
+import sys
+import re
+import unittest
+import pdb
 from cStringIO import StringIO
 
 from lsstdistrib.manifest import Dependency, Manifest, DeployedManifests
 from lsstdistrib.manifest import DeployedProductNotFound
 
 testdir = os.path.join(os.getcwd(), "tests")
+
 
 class DependencyTestCase(unittest.TestCase):
 
@@ -23,10 +28,10 @@ class DependencyTestCase(unittest.TestCase):
         self.assertEquals("python", dep.data[dep.NAME])
         self.assertEquals("generic", dep.data[dep.FLAVOR])
         self.assertEquals("2.7.2+5", dep.data[dep.VERSION])
-        self.assertEquals("external/python/2.7.2/python.table", 
+        self.assertEquals("external/python/2.7.2/python.table",
                           dep.data[dep.TABLEFILE])
         self.assertEquals("external/python/2.7.2+5", dep.data[dep.INSTALLDIR])
-        self.assertEquals("lsstbuild:external/python/2.7.2/python.bld", 
+        self.assertEquals("lsstbuild:external/python/2.7.2/python.bld",
                           dep.data[dep.INSTALLID])
 
     def testMatches(self):
@@ -41,14 +46,15 @@ class DependencyTestCase(unittest.TestCase):
         self.assert_(not dep.matches("python", "2.7.2+3", "generic"))
         self.assert_(not dep.matches("swig", "2.7.2+5", "generic"))
 
+
 class ManifestTestCase(unittest.TestCase):
+
     def setUp(self):
         self.data = "python generic 2.7.2+5 external/python/2.7.2/python.table external/python/2.7.2+5 lsstbuild:external/python/2.7.2/python.bld".split()
         self.server = os.path.join(testdir, "server")
 
     def tearDown(self):
         pass
-
 
     def testCtor(self):
         man = Manifest("numpy", "1.6.1+1")
@@ -78,49 +84,48 @@ class ManifestTestCase(unittest.TestCase):
     def testDefaultProductPath(self):
         man = Manifest("numpy", "1.6.1+1")
         self.assertEquals("afw/4.5", man.defaultProductPath("afw", "4.5"))
-        self.assertEquals("external/afw/4.5", 
+        self.assertEquals("external/afw/4.5",
                           man.defaultProductPath("afw", "4.5", "external"))
-        self.assertEquals("goofy/afw/4.5", 
+        self.assertEquals("goofy/afw/4.5",
                           man.defaultProductPath("afw", "4.5", "goofy"))
         self.assertEquals("afw/4.5", man.defaultProductPath("afw", "4.5+3"))
-                          
 
     def testDefaultId(self):
         man = Manifest("numpy", "1.6.1+1")
-        self.assertEquals("lsstbuild:afw/4.5/afw-4.5.tar.gz", 
+        self.assertEquals("lsstbuild:afw/4.5/afw-4.5.tar.gz",
                           man.defaultID("tarball", "afw", "4.5"))
-        self.assertEquals("lsstbuild:external/afw/4.5/afw-4.5.tar.gz", 
+        self.assertEquals("lsstbuild:external/afw/4.5/afw-4.5.tar.gz",
                           man.defaultID("tarball", "afw", "4.5", "external"))
-        self.assertEquals("lsstbuild:external/afw/4.5/Linux/afw-4.5.tar.gz", 
+        self.assertEquals("lsstbuild:external/afw/4.5/Linux/afw-4.5.tar.gz",
                           man.defaultID("tarball", "afw", "4.5", "external", "Linux"))
-        self.assertEquals("lsstbuild:afw-4.5/afw-4.5.tar.gz", 
+        self.assertEquals("lsstbuild:afw-4.5/afw-4.5.tar.gz",
                           man.defaultID("tarball", "afw", "4.5", path="afw-4.5"))
 
-        self.assertEquals("lsstbuild:afw/4.5/afw-4.5.tar.gz", 
+        self.assertEquals("lsstbuild:afw/4.5/afw-4.5.tar.gz",
                           man.defaultID("lsstbuild", "afw", "4.5"))
-        self.assertEquals("lsstbuild:external/afw/4.5/afw-4.5.tar.gz", 
+        self.assertEquals("lsstbuild:external/afw/4.5/afw-4.5.tar.gz",
                           man.defaultID("lsstbuild", "afw", "4.5", "external"))
-        self.assertEquals("lsstbuild:external/afw/4.5/Linux/afw-4.5.tar.gz", 
+        self.assertEquals("lsstbuild:external/afw/4.5/Linux/afw-4.5.tar.gz",
                           man.defaultID("lsstbuild", "afw", "4.5", "external", "Linux"))
-        self.assertEquals("lsstbuild:afw-4.5/afw-4.5.tar.gz", 
+        self.assertEquals("lsstbuild:afw-4.5/afw-4.5.tar.gz",
                           man.defaultID("lsstbuild", "afw", "4.5", path="afw-4.5"))
 
-        self.assertEquals("lsstbuild:afw/4.5/afw.bld", 
+        self.assertEquals("lsstbuild:afw/4.5/afw.bld",
                           man.defaultID("bld", "afw", "4.5"))
-        self.assertEquals("lsstbuild:external/afw/4.5/afw.bld", 
+        self.assertEquals("lsstbuild:external/afw/4.5/afw.bld",
                           man.defaultID("bld", "afw", "4.5", "external"))
-        self.assertEquals("lsstbuild:external/afw/4.5/Linux/afw.bld", 
+        self.assertEquals("lsstbuild:external/afw/4.5/Linux/afw.bld",
                           man.defaultID("bld", "afw", "4.5", "external", "Linux"))
-        self.assertEquals("lsstbuild:afw-4.5/afw.bld", 
+        self.assertEquals("lsstbuild:afw-4.5/afw.bld",
                           man.defaultID("bld", "afw", "4.5", path="afw-4.5"))
 
     def testAddRecord(self):
         man = Manifest("numpy", "1.6.1+1")
         self.assert_(not man.hasProduct("python"))
 
-        man.addRecord("python", "generic", "2.7.2+2", 
-                      "external/python/2.7.2/python.table", 
-                      "external/python/2.7.2+2", 
+        man.addRecord("python", "generic", "2.7.2+2",
+                      "external/python/2.7.2/python.table",
+                      "external/python/2.7.2+2",
                       "lsstbuild:external/python/2.7.2/python.bld")
         self.assert_(man.hasProduct("python"))
         self.assert_(man.hasRecord("python", "generic", "2.7.2+2"))
@@ -132,10 +137,10 @@ class ManifestTestCase(unittest.TestCase):
         self.assertEquals("python", dep.data[dep.NAME])
         self.assertEquals("generic", dep.data[dep.FLAVOR])
         self.assertEquals("2.7.2+2", dep.data[dep.VERSION])
-        self.assertEquals("external/python/2.7.2/python.table", 
+        self.assertEquals("external/python/2.7.2/python.table",
                           dep.data[dep.TABLEFILE])
         self.assertEquals("external/python/2.7.2+2", dep.data[dep.INSTALLDIR])
-        self.assertEquals("lsstbuild:external/python/2.7.2/python.bld", 
+        self.assertEquals("lsstbuild:external/python/2.7.2/python.bld",
                           dep.data[dep.INSTALLID])
 
     def testAddLSSTRecord(self):
@@ -153,10 +158,10 @@ class ManifestTestCase(unittest.TestCase):
         self.assertEquals("python", dep.data[dep.NAME])
         self.assertEquals("generic", dep.data[dep.FLAVOR])
         self.assertEquals("2.7.2+2", dep.data[dep.VERSION])
-        self.assertEquals("external/python/2.7.2/python.table", 
+        self.assertEquals("external/python/2.7.2/python.table",
                           dep.data[dep.TABLEFILE])
         self.assertEquals("external/python/2.7.2+2", dep.data[dep.INSTALLDIR])
-        self.assertEquals("lsstbuild:external/python/2.7.2/python-2.7.2.tar.gz", 
+        self.assertEquals("lsstbuild:external/python/2.7.2/python-2.7.2.tar.gz",
                           dep.data[dep.INSTALLID])
 
     def testAddExtRecord(self):
@@ -174,10 +179,10 @@ class ManifestTestCase(unittest.TestCase):
         self.assertEquals("python", dep.data[dep.NAME])
         self.assertEquals("generic", dep.data[dep.FLAVOR])
         self.assertEquals("2.7.2+2", dep.data[dep.VERSION])
-        self.assertEquals("external/python/2.7.2/python.table", 
+        self.assertEquals("external/python/2.7.2/python.table",
                           dep.data[dep.TABLEFILE])
         self.assertEquals("external/python/2.7.2+2", dep.data[dep.INSTALLDIR])
-        self.assertEquals("lsstbuild:external/python/2.7.2/python.bld", 
+        self.assertEquals("lsstbuild:external/python/2.7.2/python.bld",
                           dep.data[dep.INSTALLID])
 
     def testAddSelfRecord(self):
@@ -186,7 +191,7 @@ class ManifestTestCase(unittest.TestCase):
         self.assert_(man.getSelf() is None)
 
         # pdb.set_trace()
-        man.addSelfRecord();
+        man.addSelfRecord()
         self.assert_(man.hasProduct("python"))
 
         rec = man.getSelf()
@@ -195,12 +200,12 @@ class ManifestTestCase(unittest.TestCase):
         self.assertEquals("python", dep.data[dep.NAME])
         self.assertEquals("generic", dep.data[dep.FLAVOR])
         self.assertEquals("2.7.2+5", dep.data[dep.VERSION])
-        self.assertEquals("external/python/2.7.2/python.table", 
+        self.assertEquals("external/python/2.7.2/python.table",
                           dep.data[dep.TABLEFILE])
         self.assertEquals("external/python/2.7.2+5", dep.data[dep.INSTALLDIR])
-        self.assertEquals("lsstbuild:external/python/2.7.2/python-2.7.2.tar.gz", 
+        self.assertEquals("lsstbuild:external/python/2.7.2/python-2.7.2.tar.gz",
                           dep.data[dep.INSTALLID])
-        
+
     def testFromFile(self):
         path = os.path.join(self.server, "manifests", "numpy-1.6.1+1.manifest")
         man = Manifest.fromFile(path)
@@ -220,10 +225,10 @@ class ManifestTestCase(unittest.TestCase):
         self.assertEquals("python", dep.data[dep.NAME])
         self.assertEquals("generic", dep.data[dep.FLAVOR])
         self.assertEquals("2.7.2+1", dep.data[dep.VERSION])
-        self.assertEquals("external/python/2.7.2/python.table", 
+        self.assertEquals("external/python/2.7.2/python.table",
                           dep.data[dep.TABLEFILE])
         self.assertEquals("external/python/2.7.2+1", dep.data[dep.INSTALLDIR])
-        self.assertEquals("lsstbuild:external/python/2.7.2/python.bld", 
+        self.assertEquals("lsstbuild:external/python/2.7.2/python.bld",
                           dep.data[dep.INSTALLID])
 
     def testRoundTrip(self):
@@ -240,6 +245,7 @@ class ManifestTestCase(unittest.TestCase):
 
         self.assertEquals(filecontents.getvalue(), mancontents.getvalue())
 
+
 class DeployedManifestsTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -251,17 +257,17 @@ class DeployedManifestsTestCase(unittest.TestCase):
         pass
 
     def testManifestFilename(self):
-        self.assertEquals("goob-8.9.1.manifest", 
+        self.assertEquals("goob-8.9.1.manifest",
                           self.deployed.manifestFilename("goob", "8.9.1"))
-        self.assertEquals("goofy/goob-8.9.1.manifest", 
+        self.assertEquals("goofy/goob-8.9.1.manifest",
                           self.deployed.manifestFilename("goob", "8.9.1", "goofy"))
 
     def testProductFromFilename(self):
-        self.assertEquals(("sconsUtils", "3.4.5+1"), 
+        self.assertEquals(("sconsUtils", "3.4.5+1"),
                           self.deployed.productFromFilename("sconsUtils-3.4.5+1.manifest"))
-        self.assertEquals(("python", "2.7.2+2"), 
+        self.assertEquals(("python", "2.7.2+2"),
                           self.deployed.productFromFilename("python-2.7.2+2.manifest"))
-        self.assertEquals(("lsst", "4.4.0.1+1"), 
+        self.assertEquals(("lsst", "4.4.0.1+1"),
                           self.deployed.productFromFilename("lsst-4.4.0.1+1.manifest"))
 
     def testListAll(self):
@@ -282,27 +288,27 @@ class DeployedManifestsTestCase(unittest.TestCase):
         self.assert_("4.4.0.1+1" in versions)
 
         self.assert_(self.deployed.getVersions("goob") == [])
-        
+
     def testGetLatestVersion(self):
         self.assertEquals("2.7.2+2", self.deployed.getLatestVersion("python"))
         self.assertEquals("1.2.19", self.deployed.getLatestVersion("eups"))
         self.assertEquals("4.4.0.1+1", self.deployed.getLatestVersion("lsst"))
-        self.assertRaises(DeployedProductNotFound, 
+        self.assertRaises(DeployedProductNotFound,
                           self.deployed.getLatestVersion, "goob")
-        
+
     def testLatestProducts(self):
         prods = self.deployed.latestProducts()
         self.assertEquals(17, len(prods))
         names = set(map(lambda p: p[0], prods))
         self.assertEquals(17, len(names))
-        self.assertEquals("2.7.2+2", 
-                          map(lambda p: p[1], 
+        self.assertEquals("2.7.2+2",
+                          map(lambda p: p[1],
                               filter(lambda k: k[0] == "python", prods))[0])
-        self.assertEquals("1.2.19", 
-                          map(lambda p: p[1], 
+        self.assertEquals("1.2.19",
+                          map(lambda p: p[1],
                               filter(lambda k: k[0] == "eups", prods))[0])
-        self.assertEquals("4.4.0.1+1", 
-                          map(lambda p: p[1], 
+        self.assertEquals("4.4.0.1+1",
+                          map(lambda p: p[1],
                               filter(lambda k: k[0] == "lsst", prods))[0])
 
     def testGetLatestBuildNumber(self):
@@ -310,12 +316,12 @@ class DeployedManifestsTestCase(unittest.TestCase):
         self.assertEquals(1, self.deployed.getLatestBuildNumber("python", "2.7.1"))
         self.assertEquals(1, self.deployed.getLatestBuildNumber("python", "2.7.1+3"))
         self.assertEquals(1, self.deployed.getLatestBuildNumber("lsst", "4.4.0.1"))
-        self.assertRaises(DeployedProductNotFound, 
+        self.assertRaises(DeployedProductNotFound,
                           self.deployed.getLatestBuildNumber, "goob", "1.0")
 
     def testGetManifest(self):
         man = self.deployed.getManifest("numpy", "1.6.1+1")
-        
+
         id = man.getNameVerFlav()
         self.assertEquals("numpy", id[0])
         self.assertEquals("1.6.1+1", id[1])
@@ -332,10 +338,10 @@ class DeployedManifestsTestCase(unittest.TestCase):
         self.assert_("matplotlib" in pnames)
         self.assert_("pyfits" in pnames)
         self.assert_("numpy" in pnames)
-        
+
         deps = self.deployed.dependsOn("tcltk", "8.5.9+1")
         self.assertEquals(9, len(deps))
-        pydep = map(lambda y: y[1], 
+        pydep = map(lambda y: y[1],
                     filter(lambda p: p[0] == "python", deps))
         self.assertEquals("2.7.2+2", pydep[0])
 
